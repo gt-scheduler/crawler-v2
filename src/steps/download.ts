@@ -1,4 +1,7 @@
 import axios from "axios";
+import { wrapper } from "axios-cookiejar-support";
+import { CookieJar } from "tough-cookie";
+
 import { concatParams, generateSessionId } from "../utils";
 
 export interface FetchOptions {
@@ -17,7 +20,21 @@ export async function download(
   options: FetchOptions = {}
 ): Promise<string> {
   const { subject = "", course = "", title = "" } = options;
-  const uniqueSessionId = sessionId ?? generateSessionId();
+  const uniqueSessionId = generateSessionId();
+
+  const jar = new CookieJar();
+  const client = wrapper(axios.create({ jar }));
+
+  // await client.get('https://example.com');
+
+  console.log(uniqueSessionId);
+
+  const res = await client.post(
+    "https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/term/search",
+    { term: "202302" }
+  );
+  // console.log(res.request);
+  console.log(res.data);
 
   const dummyParams = [
     // "sel_subj",
@@ -31,12 +48,11 @@ export async function download(
     // "sel_ptrm",
     // "sel_attr",
   ].reduce((acc, dummyKey) => ({ ...acc, [dummyKey]: "dummy" }), {});
-  console.log(dummyParams);
   const params = {
     txt_term: "202302",
     startDatepicker: "",
     endDatepicker: "",
-    uniqueSessionId: "71shz1677955539314",
+    uniqueSessionId,
     pageOffset: 0,
     pageMaxSize: 500,
     sortColumn: "subjectDescription",
@@ -59,14 +75,14 @@ export async function download(
     // end_ap: "a",
   };
   const query = [dummyParams, params].map(concatParams).join("&");
-  const url = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/searchResults?${query}`;
+  const url = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/searchResults?&txt_term=202302&startDatepicker=&endDatepicker=&uniqueSessionId=uykif1677962343048&pageOffset=0&pageMaxSize=500&sortColumn=subjectDescription&sortDirection=asc`;
   console.log(url);
-  const response = await axios.get<string>(url, {
+  const response = await client.get(url, {
     headers: {
       "X-Requested-With": "XMLHttpRequest",
-      "Content-Type": "application/json",
     },
   });
+  // console.log(response.request);
   console.log(response.data);
   return response.data;
 }

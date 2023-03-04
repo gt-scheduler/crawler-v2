@@ -82,10 +82,6 @@ export function getIntConfig(key: string): number | null {
   }
 }
 
-export function generateRandomString(): string {
-  return Math.random().toString(36).slice(2);
-}
-
 const lowercase = [
   "a",
   "b",
@@ -116,14 +112,6 @@ const lowercase = [
 ];
 
 export function generateSessionId(): string {
-  console.log("blah", lowercase[Math.floor(Math.random() * 27)]);
-  console.log(
-    "here",
-    Array<string>(5)
-      .fill("")
-      .map(() => lowercase[Math.floor(Math.random() * 26)])
-  );
-  console.log("here2", new Date().getTime().toString());
   return (
     Array<string>(5)
       .fill("")
