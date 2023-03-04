@@ -111,6 +111,7 @@ export function parse(json: string, version: number): TermData {
     locations: [],
     finalDates: [],
     finalTimes: [],
+    fullCourseNames: [],
   };
 
   const parsedJson = JSON.parse(json);
@@ -143,6 +144,8 @@ export function parse(json: string, version: number): TermData {
     const attributeIndices = attributes.map((attr) =>
       cache(caches.attributes, attr)
     );
+
+    const fullCourseNameIndex = cache(caches.fullCourseNames, section.subjectDescription);
 
     const meetings: Meeting[] = section.meetingsFaculty.map((meetingPart) => {
       // convert string location to latitude, longitude coordinates
@@ -220,6 +223,7 @@ export function parse(json: string, version: number): TermData {
       campusIndex,
       attributeIndices,
       -1,
+      fullCourseNameIndex,
     ];
   });
 

@@ -72,6 +72,11 @@ export interface Caches {
    * Example time: 11:20 am - 2:10 pm
    */
   finalTimes: string[];
+  /**
+   * List of the full names of courses
+   * Example name: Accounting for ACCT
+   * */
+  fullCourseNames: string[];
 }
 
 /**
@@ -148,7 +153,11 @@ export type Section = [
    * integer index into caches.gradeBases,
    * specifying the grading scheme of the class
    */
-  gradeBaseIndex: number
+  gradeBaseIndex: number,
+  /**
+   * integer index into caches.fullCourseNames,
+   */
+  fullCourseNameIndex: number,
 ];
 
 /**
