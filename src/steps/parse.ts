@@ -111,7 +111,7 @@ export function parse(json: string, version: number): TermData {
     locations: [],
     finalDates: [],
     finalTimes: [],
-    fullCourseNames: [],
+    fullCourseNames: {},
   };
 
   const parsedJson = JSON.parse(json);
@@ -122,11 +122,7 @@ export function parse(json: string, version: number): TermData {
   const sections: SectionResponse[] = parsedJson.data;
 
   sections.forEach((section) => {
-    const {
-      courseTitle,
-      courseReferenceNumber,
-      sequenceNumber,
-    } = section;
+    const { courseTitle, courseReferenceNumber, sequenceNumber } = section;
 
     const courseName = `${courseTitle} ${sequenceNumber}`;
 
@@ -146,7 +142,7 @@ export function parse(json: string, version: number): TermData {
       cache(caches.attributes, attr)
     );
 
-    const fullCourseNameIndex = cache(caches.fullCourseNames, section.subjectDescription);
+    caches.fullCourseNames[section.subjectDescription] = section.subject;
 
     const meetings: Meeting[] = section.meetingsFaculty.map((meetingPart) => {
       // convert string location to latitude, longitude coordinates
@@ -224,7 +220,6 @@ export function parse(json: string, version: number): TermData {
       campusIndex,
       attributeIndices,
       -1,
-      fullCourseNameIndex,
     ];
   });
 

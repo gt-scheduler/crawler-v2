@@ -76,7 +76,7 @@ export interface Caches {
    * List of the full names of courses
    * Example name: Accounting for ACCT
    * */
-  fullCourseNames: string[];
+  fullCourseNames: { [key: string]: string };
 }
 
 /**
@@ -153,11 +153,7 @@ export type Section = [
    * integer index into caches.gradeBases,
    * specifying the grading scheme of the class
    */
-  gradeBaseIndex: number,
-  /**
-   * integer index into caches.fullCourseNames,
-   */
-  fullCourseNameIndex: number,
+  gradeBaseIndex: number
 ];
 
 /**
