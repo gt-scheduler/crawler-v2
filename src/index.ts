@@ -21,7 +21,7 @@ import {
   warn,
   getLogFormat,
 } from "./log";
-import { getIntConfig } from "./utils";
+import { getIntConfig, generateSessionId } from "./utils";
 
 // Current scraped JSON version
 const CURRENT_VERSION = 3;
@@ -189,8 +189,13 @@ async function crawlTerm(
   // Alias the parameter so we can modify it
   let spanFields = baseSpanFields;
 
+  const uniqueSessionId = generateSessionId();
+  console.log(uniqueSessionId);
+
   // Download the term HTML page containing every course.
-  const html = await span(`downloading term`, spanFields, () => download(term));
+  const html = await span(`downloading term`, spanFields, () =>
+    download(term, uniqueSessionId)
+  );
 
   const termData = await span(`parsing term data to JSON`, spanFields, () =>
     parse(html, CURRENT_VERSION)

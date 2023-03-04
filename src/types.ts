@@ -244,3 +244,14 @@ export class Location {
  * ```
  */
 export type Prerequisites = PrerequisiteSet | [];
+
+export interface FacultyResponse {
+  bannerId: string;
+  category: unknown;
+  class: string;
+  courseReferenceNumber: string;
+  displayName: string;
+  emailAddress: string;
+  primaryIndiciator: boolean;
+  term: string;
+}
