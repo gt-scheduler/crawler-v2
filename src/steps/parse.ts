@@ -126,8 +126,9 @@ export function parse(json: string, version: number): TermData {
       courseTitle,
       courseReferenceNumber,
       sequenceNumber,
-      subjectCourse,
     } = section;
+
+    const courseName = `${courseTitle} ${sequenceNumber}`;
 
     const credits = section.creditHours;
     const campus = section.campusDescription;
@@ -202,10 +203,10 @@ export function parse(json: string, version: number): TermData {
       ];
     });
 
-    if (!(subjectCourse in courses)) {
+    if (!(courseName in courses)) {
       const title = courseTitle;
       const sectionsMap: Record<string, Section> = {};
-      courses[subjectCourse] = [
+      courses[courseName] = [
         title,
         sectionsMap,
         // Start off with an empty prerequisites array
@@ -215,7 +216,7 @@ export function parse(json: string, version: number): TermData {
       ];
     }
 
-    courses[subjectCourse][1][sequenceNumber] = [
+    courses[courseName][1][sequenceNumber] = [
       courseReferenceNumber,
       meetings,
       credits,
