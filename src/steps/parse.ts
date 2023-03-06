@@ -99,7 +99,7 @@ const ignoredLocations = [
   "Toulouse, France",
 ];
 
-export function parse(json: string, version: number): TermData {
+export function parse(sections: SectionResponse[], version: number): TermData {
   const courses: Record<string, Course> = {};
   const caches: Caches = {
     periods: [],
@@ -114,12 +114,9 @@ export function parse(json: string, version: number): TermData {
     fullCourseNames: {},
   };
 
-  const parsedJson = JSON.parse(json);
   const updatedAt = new Date();
 
   const missingLocations = new Set<string>();
-
-  const sections: SectionResponse[] = parsedJson.data;
 
   sections.forEach((section) => {
     const { courseTitle, courseReferenceNumber, sequenceNumber } = section;
