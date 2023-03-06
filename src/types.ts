@@ -250,6 +250,26 @@ export class Location {
  */
 export type Prerequisites = PrerequisiteSet | [];
 
+export type BannerResponse = {
+  success: boolean;
+  totalCount: number;
+  data: SectionResponse[] | null;
+  pageOffset: number;
+  pageMaxSize: number;
+  sectionsFetchedCount: 0;
+  pathMode: string | null;
+  searchResultsConfigs: SearchResultsConfigResponse[] | null;
+  ztcEncodedImage: string | null;
+};
+
+export type SearchResultsConfigResponse = {
+  config: string;
+  display: string;
+  title: string;
+  required: boolean;
+  width: string;
+};
+
 export type SectionResponse = {
   id: number;
   term: string;
