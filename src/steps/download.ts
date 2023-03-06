@@ -32,15 +32,22 @@ export async function download(
   try {
     const response = await backOff(
       () =>
-        axios.post(
-          "https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/term/search?mode=search",
-          { term },
-          {
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded; charset=UT",
-            },
-          }
-        ),
+        axios
+          .post(
+            "https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/term/search?mode=search",
+            { term },
+            {
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UT",
+              },
+            }
+          )
+          .then((res) => {
+            if (res.headers["set-cookie"] === undefined) {
+              throw new Error("Null session cookie generated");
+            }
+            return res;
+          }),
       {
         // See https://github.com/coveooss/exponential-backoff for options API.
         jitter: "full",
@@ -55,9 +62,6 @@ export async function download(
         },
       }
     );
-    if (response.headers["set-cookie"] === undefined) {
-      throw new Error("Null session cookie generated");
-    }
     sessionGenerateRes = response;
   } catch (err) {
     error(`exhausted retries for generating banner session`, err, {
@@ -102,31 +106,36 @@ export async function download(
       const url = urlBuilder(query);
 
       try {
-        const response = await backOff(() => session.get<BannerResponse>(url), {
-          // See https://github.com/coveooss/exponential-backoff for options API
-          jitter: "full",
-          numOfAttempts: maxAttemptCount,
-          retry: (err, attemptNumber) => {
-            error(`an error occurred while fetching course sections`, err, {
-              term,
-              sectionOffset,
-              pageMaxSize,
-              attemptNumber,
-              tryingAgain: attemptNumber < maxAttemptCount,
-            });
-            return true;
-          },
-        });
+        const response = await backOff(
+          () =>
+            session.get<BannerResponse>(url).then((res) => {
+              if (res.data.data === null) {
+                throw new Error("Fetched null data");
+              }
+              return res;
+            }),
+          {
+            // See https://github.com/coveooss/exponential-backoff for options API
+            jitter: "full",
+            numOfAttempts: maxAttemptCount,
+            retry: (err, attemptNumber) => {
+              error(`an error occurred while fetching course sections`, err, {
+                term,
+                sectionOffset,
+                pageMaxSize,
+                attemptNumber,
+                tryingAgain: attemptNumber < maxAttemptCount,
+              });
+              return true;
+            },
+          }
+        );
 
         // Appends the response data to sectionResponses if data is not null and it is not the initial
         // request to get total section count. If data is null, it throws an error.
         const bannerResponse = response.data;
-        if (bannerResponse.data !== null) {
-          if (pageMaxSize !== 0) {
-            sectionResponses.push(bannerResponse.data);
-          }
-        } else {
-          throw new Error("Fetched null data");
+        if (bannerResponse.data !== null && pageMaxSize !== 0) {
+          sectionResponses.push(bannerResponse.data);
         }
         return bannerResponse.totalCount;
       } catch (err) {

@@ -190,10 +190,12 @@ async function crawlTerm(
   let spanFields = baseSpanFields;
 
   // Download the term JSON containing every course.
-  const json = await span(`downloading term`, spanFields, () => download(term));
+  const sections = await span(`downloading term`, spanFields, () =>
+    download(term)
+  );
 
   const termData = await span(`parsing term data to JSON`, spanFields, () =>
-    parse(json, CURRENT_VERSION)
+    parse(sections, CURRENT_VERSION)
   );
 
   const allCourseIds = Object.keys(termData.courses);
