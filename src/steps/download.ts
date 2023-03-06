@@ -84,8 +84,8 @@ export async function download(
       txt_courseNumber: course,
       startDatepicker: "",
       endDatepicker: "",
-      pageOffset,
-      pageMaxSize,
+      pageOffset: pageOffset.toString(),
+      pageMaxSize: pageMaxSize.toString(),
       sortColumn: "subjectDescription",
       sortDirection: "asc",
     };
