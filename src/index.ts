@@ -30,8 +30,7 @@ import { getIntConfig } from "./utils";
 const CURRENT_VERSION = 3;
 
 // Number of terms to scrape (scrapes most recent `NUM_TERMS`)
-// const NUM_TERMS = getIntConfig("NUM_TERMS") ?? 2;
-const NUM_TERMS = 3;
+const NUM_TERMS = getIntConfig("NUM_TERMS") ?? 2;
 
 // Whether to always scrape the current term, even if it's not in the
 // most recent `NUM_TERMS` terms.
