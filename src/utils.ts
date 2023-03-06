@@ -48,7 +48,7 @@ export function writeFile(path: string, json: unknown): Promise<void> {
   });
 }
 
-export function concatParams(params: Record<string, string>): string {
+export function concatParams(params: Record<string, string | number>): string {
   return Object.entries(params)
     .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
     .join("&");
@@ -80,42 +80,4 @@ export function getIntConfig(key: string): number | null {
     // Unreachable
     return null;
   }
-}
-
-const lowercase = [
-  "a",
-  "b",
-  "c",
-  "d",
-  "e",
-  "f",
-  "g",
-  "h",
-  "i",
-  "j",
-  "k",
-  "l",
-  "m",
-  "n",
-  "o",
-  "p",
-  "q",
-  "r",
-  "s",
-  "t",
-  "u",
-  "v",
-  "w",
-  "x",
-  "y",
-  "z",
-];
-
-export function generateSessionId(): string {
-  return (
-    Array<string>(5)
-      .fill("")
-      .map(() => lowercase[Math.floor(Math.random() * 26)])
-      .join("") + new Date().getTime().toString()
-  );
 }
