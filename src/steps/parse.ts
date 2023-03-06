@@ -1,5 +1,13 @@
-import { TermData, Course, Caches, Meeting, Section, Location } from "../types";
-import { cache, extract, match, regexExec } from "../utils";
+import {
+  TermData,
+  Course,
+  Caches,
+  Meeting,
+  Section,
+  Location,
+  SectionResponse,
+} from "../types";
+import { cache } from "../utils";
 import { warn } from "../log";
 
 /**
@@ -91,7 +99,7 @@ const ignoredLocations = [
   "Toulouse, France",
 ];
 
-export function parse(html: string, version: number): TermData {
+export function parse(json: string, version: number): TermData {
   const courses: Record<string, Course> = {};
   const caches: Caches = {
     periods: [],
@@ -103,91 +111,70 @@ export function parse(html: string, version: number): TermData {
     locations: [],
     finalDates: [],
     finalTimes: [],
+    fullCourseNames: {},
   };
+
+  const parsedJson = JSON.parse(json);
   const updatedAt = new Date();
 
   const missingLocations = new Set<string>();
 
-  const startIndex = html.indexOf(
-    '<caption class="captiontext">Sections Found</caption>'
-  );
-  const endIndex = html.lastIndexOf(
-    '<table  CLASS="datadisplaytable" summary="This is for formatting of the bottom links." WIDTH="50%">'
-  );
-  const body = html.slice(startIndex, endIndex);
-  const sections = body
-    .split('<tr>\n<th CLASS="ddtitle" scope="colgroup" >')
-    .slice(1);
+  const sections: SectionResponse[] = parsedJson.data;
 
   sections.forEach((section) => {
-    const [titlePart, descriptionPart, , ...meetingParts] =
-      section.split("<tr>\n");
+    const { courseTitle, courseReferenceNumber, sequenceNumber } = section;
 
-    const [, courseTitle, crn, courseId, sectionId] = regexExec(
-      /^<a href=".+">(.+) - (\d{5}) - (\w+ \w+) - (.+)<\/a>/,
-      titlePart
-    );
+    const courseName = `${courseTitle} ${sequenceNumber}`;
 
-    const fields: Record<string, string | undefined> = extract(
-      descriptionPart,
-      /^<SPAN class="fieldlabeltext">(.+): <\/SPAN>(.+)$/gm,
-      (results) => {
-        const [, key, value] = results;
-        return { key, value };
-      }
-    ).reduce((acc, { key, value }) => ({ ...acc, [key]: value }), {});
-    const attributesKey = "Attributes";
-    const attributes =
-      fields[attributesKey]?.split(",").map((attribute) => attribute.trim()) ??
-      [];
-    const gradeBasis = fields["Grade Basis"] ?? null;
+    const credits = section.creditHours;
+    const campus = section.campusDescription;
 
-    const credits = Number(match(descriptionPart, /(\d+\.\d{3}) Credits$/m));
-    const scheduleType = match(descriptionPart, /^(.+) Schedule Type$/m);
-    const campus = match(descriptionPart, /^(.+) Campus$/m);
-
-    const scheduleTypeIndex = cache(caches.scheduleTypes, scheduleType);
     const campusIndex = cache(caches.campuses, campus);
-    const attributeIndices = attributes.map((attribute) =>
-      cache(caches.attributes, attribute)
+    const scheduleTypeIndex = cache(
+      caches.scheduleTypes,
+      section.scheduleTypeDescription
     );
-    const gradeBasisIndex = cache(caches.gradeBases, gradeBasis);
 
-    const meetings = meetingParts.map<Meeting>((meetingPart) => {
-      const [
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _type,
-        period,
-        days,
-        where,
-        dateRange,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _scheduleType,
-        instructorsString,
-      ] = meetingPart
-        .split("\n")
-        .slice(0, 7)
-        .map((row) => row.replace(/<\/?[^>]+(>|$)/g, ""))
-        .map((row) => row.trim());
+    const attributes = section.sectionAttributes.map(
+      (attr) => attr.description
+    );
+    const attributeIndices = attributes.map((attr) =>
+      cache(caches.attributes, attr)
+    );
 
+    caches.fullCourseNames[section.subjectDescription] = section.subject;
+
+    const meetings: Meeting[] = section.meetingsFaculty.map((meetingPart) => {
       // convert string location to latitude, longitude coordinates
-      const locationName = Array.from(courseLocations.keys()).find((locName) =>
-        where.includes(locName)
+      const locationName = Array.from(courseLocations.keys()).find(
+        (locName) => meetingPart.meetingTime.buildingDescription === locName
       );
       let location;
       if (locationName) {
         location = courseLocations.get(locationName);
       } else {
         const shouldIgnore =
-          ignoredLocations.find((locName) => where.includes(locName)) != null;
+          ignoredLocations.find(
+            (locName) => locName === meetingPart.meetingTime.buildingDescription
+          ) != null;
         if (!shouldIgnore) {
-          missingLocations.add(where);
+          missingLocations.add(meetingPart.meetingTime.buildingDescription);
         }
       }
 
-      const instructors = instructorsString.replace(/ +/g, " ").split(", ");
-      const periodIndex = cache(caches.periods, period);
-      const dateRangeIndex = cache(caches.dateRanges, dateRange);
+      const instructors = section.faculty.map(
+        (faculty) =>
+          faculty.displayName.split(", ").reverse().join(" ") +
+          (faculty.primaryIndicator ? " (P)" : "")
+      );
+      const periodIndex = cache(
+        caches.periods,
+        `${meetingPart.meetingTime.beginTime} - ${meetingPart.meetingTime.endTime}`
+      );
+      const dateRangeIndex = cache(
+        caches.dateRanges,
+        `${meetingPart.meetingTime.startDate} - ${meetingPart.meetingTime.endDate}`
+      );
       const locationIndex = cache(caches.locations, location || null);
 
       // Set to -1 here and to be updated by Revise.py later
@@ -196,8 +183,14 @@ export function parse(html: string, version: number): TermData {
 
       return [
         periodIndex,
-        days,
-        where,
+        (meetingPart.meetingTime.monday ? "M" : "") +
+          (meetingPart.meetingTime.tuesday ? "T" : "") +
+          (meetingPart.meetingTime.wednesday ? "W" : "") +
+          (meetingPart.meetingTime.thursday ? "R" : "") +
+          (meetingPart.meetingTime.friday ? "F" : "") +
+          (meetingPart.meetingTime.saturday ? "S" : "") +
+          (meetingPart.meetingTime.sunday ? "U" : ""),
+        `${meetingPart.meetingTime.buildingDescription} ${meetingPart.meetingTime.building}`,
         locationIndex,
         instructors,
         dateRangeIndex,
@@ -206,10 +199,10 @@ export function parse(html: string, version: number): TermData {
       ];
     });
 
-    if (!(courseId in courses)) {
+    if (!(courseName in courses)) {
       const title = courseTitle;
       const sectionsMap: Record<string, Section> = {};
-      courses[courseId] = [
+      courses[courseName] = [
         title,
         sectionsMap,
         // Start off with an empty prerequisites array
@@ -218,14 +211,15 @@ export function parse(html: string, version: number): TermData {
         null,
       ];
     }
-    courses[courseId][1][sectionId] = [
-      crn,
+
+    courses[courseName][1][sequenceNumber] = [
+      courseReferenceNumber,
       meetings,
       credits,
       scheduleTypeIndex,
       campusIndex,
       attributeIndices,
-      gradeBasisIndex,
+      -1,
     ];
   });
 
