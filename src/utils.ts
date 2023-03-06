@@ -48,7 +48,7 @@ export function writeFile(path: string, json: unknown): Promise<void> {
   });
 }
 
-export function concatParams(params: Record<string, string | number>): string {
+export function concatParams(params: Record<string, string>): string {
   return Object.entries(params)
     .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
     .join("&");
