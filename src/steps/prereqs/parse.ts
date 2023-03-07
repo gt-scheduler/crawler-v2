@@ -8,6 +8,10 @@ import {
 } from "antlr4ts";
 import { AbstractParseTreeVisitor } from "antlr4ts/tree/AbstractParseTreeVisitor";
 import { ATNSimulator } from "antlr4ts/atn/ATNSimulator";
+import { load } from "cheerio";
+import axios from "axios";
+import _ from "lodash";
+
 import { PrerequisitesLexer } from "./grammar/PrerequisitesLexer";
 import {
   AtomContext,
@@ -17,7 +21,7 @@ import {
   TermContext,
 } from "./grammar/PrerequisitesParser";
 import { PrerequisitesVisitor } from "./grammar/PrerequisitesVisitor";
-import { error } from "../../log";
+import { error, log } from "../../log";
 import {
   MinimumGrade,
   PrerequisiteClause,
@@ -27,7 +31,93 @@ import {
   PrerequisiteSet,
 } from "../../types";
 import { regexExec } from "../../utils";
+import { downloadCourseDetails } from "../details";
 
+const fullCourseNames = {
+  "Vertically Integrated Project": "VIP",
+  Wolof: "WOLO",
+  "Electrical & Computer Engr": "ECE",
+  "Computer Science": "CS",
+  "Cooperative Work Assignment": "COOP",
+  "Cross Enrollment": "UCGA",
+  "Earth and Atmospheric Sciences": "EAS",
+  Economics: "ECON",
+  "Civil and Environmental Engr": "CEE",
+  "Biological Sciences": "BIOS",
+  Biology: "BIOL",
+  "Biomed Engr/Joint Emory PKU": "BMEJ",
+  "Biomedical Engineering": "BMED",
+  Management: "MGT",
+  "Management of Technology": "MOT",
+  "Manufacturing Leadership": "MLDR",
+  "Materials Science & Engr": "MSE",
+  "Elect & Comp Engr-Professional": "ECEP",
+  "Mechanical Engineering": "ME",
+  English: "ENGL",
+  "Foreign Studies": "FS",
+  French: "FREN",
+  "Georgia Tech": "GT",
+  "Georgia Tech Lorraine": "GTL",
+  German: "GRMN",
+  "Global Media and Cultures": "GMC",
+  "Health Systems": "HS",
+  History: "HIST",
+  "History, Technology & Society": "HTS",
+  "Industrial & Systems Engr": "ISYE",
+  Accounting: "ACCT",
+  "Aerospace Engineering": "AE",
+  Chemistry: "CHEM",
+  Chinese: "CHIN",
+  "City Planning": "CP",
+  "International Affairs": "INTA",
+  "International Logistics": "IL",
+  Internship: "INTN",
+  "Intl Executive MBA": "IMBA",
+  "Ivan Allen College": "IAC",
+  Japanese: "JAPN",
+  Korean: "KOR",
+  "Learning Support": "LS",
+  Linguistics: "LING",
+  "Literature, Media & Comm": "LMC",
+  Psychology: "PSYC",
+  "Public Policy": "PUBP",
+  "Public Policy/Joint GSU PhD": "PUBJ",
+  Russian: "RUSS",
+  "Serve, Learn, Sustain": "SLS",
+  Sociology: "SOC",
+  Spanish: "SPAN",
+  Swahili: "SWAH",
+  "College of Architecture": "COA",
+  "College of Engineering": "COE",
+  "College of Sciences": "COS",
+  "Computational Mod, Sim, & Data": "CX",
+  "Computational Science & Engr": "CSE",
+  Mathematics: "MATH",
+  "Biomedical Engr/Joint Emory": "BMEM",
+  "Bldg Construction-Professional": "BCP",
+  "Building Construction": "BC",
+  "Center Enhancement-Teach/Learn": "CETL",
+  "Chemical & Biomolecular Engr": "CHBE",
+  Philosophy: "PHIL",
+  Physics: "PHYS",
+  "Political Science": "POL",
+  "Polymer, Textile and Fiber Eng": "PTFE",
+  "Medical Physics": "MP",
+  "Military Science & Leadership": "MSL",
+  "Modern Languages": "ML",
+  Music: "MUSI",
+  "Naval Science": "NS",
+  Neuroscience: "NEUR",
+  "Nuclear & Radiological Engr": "NRE",
+  "Office of International Educ": "OIE",
+  "Industrial Design": "ID",
+  "Air Force Aerospace Studies": "AS",
+  "Applied Physiology": "APPH",
+  "Applied Systems Engineering": "ASE",
+  Arabic: "ARBC",
+  Architecture: "ARCH",
+};
+const courseMap = new Map(Object.entries(fullCourseNames));
 const prereqSectionStart = `<SPAN class="fieldlabeltext">Prerequisites: </SPAN>`;
 const prereqSectionRegex = /<br \/>\s*(.*)\s*<br \/>/;
 
@@ -35,7 +125,7 @@ const prereqSectionRegex = /<br \/>\s*(.*)\s*<br \/>/;
  * Parses the HTML for a single course to get its prerequisites
  * @param html - Source HTML from the course details page
  */
-export function parseCoursePrereqs(
+export function parseCoursePrereqsOld(
   html: string,
   courseId: string
 ): Prerequisites {
@@ -84,7 +174,77 @@ export function parseCoursePrereqs(
   // Finally, flatten the tree so that consecutive operands
   // for the same operator in a series of nested PrerequisiteSets
   // are put into a single PrerequisiteSet
-  return flatten(prerequisiteClause);
+  const flattened = flatten(prerequisiteClause);
+  return flattened;
+}
+
+export function parseCoursePrereqsNew(
+  html: string,
+  courseId: string
+): Prerequisites {
+  const $ = load(html);
+  const prereqTable = $(".basePreqTable").find("tr");
+  const prereqRows = Array<string>();
+  prereqTable.each((index, element) => {
+    if (index === 0) return;
+
+    const tds = $(element).children();
+    let prereqRow = "";
+
+    if (tds.eq(2).text() !== "") {
+      return;
+    }
+    if (tds.eq(4).text() === "") {
+      prereqRow += tds.eq(0).text().toLowerCase().concat(" ");
+      prereqRow += tds.eq(1).text().concat(tds.eq(8).text());
+      prereqRow = prereqRow.trim();
+    } else {
+      prereqRow += tds.eq(0).text().toLowerCase().concat(" ");
+      prereqRow += tds.eq(1).text();
+      prereqRow += tds.eq(6).text().concat(" level  ");
+      prereqRow += courseMap.get(tds.eq(4).text())!.concat(" ");
+      prereqRow += tds.eq(5).text().concat(" ");
+      prereqRow += "Minimum Grade of ".concat(tds.eq(7).text());
+      prereqRow += tds.eq(8).text().concat(" ");
+    }
+
+    prereqRows.push(prereqRow);
+  });
+
+  const cleaned = prereqRows.join("").trim();
+  // Create the lexer and parser using the ANTLR 4 grammar defined in ./grammar
+  // (using antlr4ts: https://github.com/tunnelvisionlabs/antlr4ts)
+  const charStream = CharStreams.fromString(cleaned, courseId);
+  const lexer = new PrerequisitesLexer(charStream);
+  lexer.removeErrorListeners();
+  lexer.addErrorListener(new ErrorListener(courseId, cleaned));
+  const tokenStream = new CommonTokenStream(lexer);
+  const parser = new PrerequisitesParser(tokenStream);
+  parser.removeErrorListeners();
+  parser.addErrorListener(new ErrorListener(courseId, cleaned));
+
+  // Get the top-level "parse" rule's tree
+  // and pass it into our visitor to transform the parse tree
+  // into the prefix-notation parsed version
+  const tree = parser.parse();
+  const visitor = new PrefixNotationVisitor();
+  const prerequisiteClause = visitor.visit(tree);
+
+  // No prerequisites
+  if (prerequisiteClause == null) {
+    return [];
+  }
+
+  // If there is only a single prereq, return as a prefix set with "and"
+  if (isSingleCourse(prerequisiteClause)) {
+    return ["and", prerequisiteClause];
+  }
+
+  // Finally, flatten the tree so that consecutive operands
+  // for the same operator in a series of nested PrerequisiteSets
+  // are put into a single PrerequisiteSet
+  const flattened = flatten(prerequisiteClause);
+  return flattened;
 }
 
 /**
@@ -277,3 +437,26 @@ class PrefixNotationVisitor
     return { id: `${subject} ${number}`, grade };
   }
 }
+
+function testParsePrereqs() {
+  const crn = "86077";
+  const term = "202208";
+  const courseId = "CEE 4600";
+
+  const prereqUrl = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites?term=${term}&courseReferenceNumber=${crn}&`;
+  axios.get<string>(prereqUrl).then(async (response) => {
+    const detailsHtml = await downloadCourseDetails(crn, courseId);
+
+    const { data: prereqData } = response;
+    const prereqsOld = await parseCoursePrereqsOld(detailsHtml, courseId);
+    const prereqsNew = await parseCoursePrereqsNew(prereqData, courseId);
+
+    console.log("Output before migration:");
+    console.log(prereqsOld);
+    console.log("Output after migration:");
+    console.log(prereqsNew);
+    console.log("Equal: ", _.isEqual(prereqsOld, prereqsNew));
+  });
+}
+
+testParsePrereqs();
