@@ -260,12 +260,12 @@ async function crawlCourseDetails(
 ): Promise<
   [htmlLength: number, prereqs: Prerequisites | [], descriptions: string | null]
 > {
-  const [_, sections] = course;
+  const [, sections] = course;
   const [crn] = Object.values(sections)[0];
 
   const detailsHtml = await downloadCourseDetails(term, courseId);
   const prereqHtml = await downloadCoursePrereqDetails(term, courseId, crn);
-  const prereqs = await parseCoursePrereqsNew(prereqHtml, courseId);
+  const prereqs = parseCoursePrereqsNew(prereqHtml, courseId);
   const description = parseCourseDescription(detailsHtml, courseId);
   return [detailsHtml.length, prereqs, description];
 }
