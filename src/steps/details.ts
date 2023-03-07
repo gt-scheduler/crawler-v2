@@ -13,10 +13,6 @@ export async function downloadCourseDetails(
   courseId: string
 ): Promise<string> {
   // Attempt to split the course ID into its subject/number
-  if (courseId.includes("Computer Science")) {
-    error("ERROR:djsakldjskld", { courseId });
-  }
-
   const splitResult = splitCourseId(courseId);
   if (splitResult === null) {
     warn("could not split course ID; skipping detail scraping", { courseId });
