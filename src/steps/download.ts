@@ -1,10 +1,12 @@
-import axios, { AxiosResponse } from "axios";
-import asyncPool from "tiny-async-pool";
+import axios, { AxiosInstance } from "axios";
 import { backOff } from "exponential-backoff";
 
 import { concatParams } from "../utils";
 import { BannerResponse, SectionResponse } from "../types";
 import { error } from "../log";
+
+export const MAX_PAGE_SIZE = 500;
+export const MAX_ATTEMPT_COUNT = 10;
 
 export interface FetchOptions {
   subject?: string;
@@ -12,23 +14,47 @@ export interface FetchOptions {
   title?: string;
 }
 
+export interface SectionsPage {
+  sections: SectionResponse[];
+  totalCount: number;
+}
+
+export function buildParamsCurry(
+  term: string,
+  subject: string,
+  course: string,
+  pageMaxSize: number
+): (pageOffset: number) => Record<string, string> {
+  return function buildParams(pageOffset: number) {
+    return {
+      txt_term: term,
+      txt_subj: subject,
+      txt_courseNumber: course,
+      startDatepicker: "",
+      endDatepicker: "",
+      pageOffset: pageOffset.toString(),
+      pageMaxSize: pageMaxSize.toString(),
+      sortColumn: "subjectDescription",
+      sortDirection: "asc",
+    };
+  };
+}
+
 /**
  * Creates a banner search url with an input query.
  * @param query - Banner search query
  */
-export function urlBuilder(query: string): string {
+export function searchUrlBuilder(query: string): string {
   return `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/searchResults?${query}`;
 }
 
-export async function download(
-  term: string,
-  options: FetchOptions = {}
-): Promise<SectionResponse[]> {
-  const { subject = "", course = "" } = options;
-
-  const maxAttemptCount = 10;
-  let sessionGenerateRes: AxiosResponse;
-  // Generates a session cookie for the Banner 9 API for the given term with exponential backoff in case of errors.
+/**
+ * Generates a session cookie for the Banner 9 API for the given term with exponential backoff in case of errors.
+ * @param term - The term whose session is created
+ */
+export async function generateSearchSessionCookie(
+  term: string
+): Promise<string[]> {
   try {
     const response = await backOff(
       () =>
@@ -51,120 +77,146 @@ export async function download(
       {
         // See https://github.com/coveooss/exponential-backoff for options API.
         jitter: "full",
-        numOfAttempts: maxAttemptCount,
+        numOfAttempts: MAX_ATTEMPT_COUNT,
         retry: (err, attemptNumber) => {
           error(`an error occurred while generating banner session`, err, {
             term,
             attemptNumber,
-            tryingAgain: attemptNumber < maxAttemptCount,
+            tryingAgain: attemptNumber < MAX_ATTEMPT_COUNT,
           });
           return true;
         },
       }
     );
-    sessionGenerateRes = response;
+
+    const cookie = response.headers["set-cookie"];
+    if (cookie === undefined) {
+      throw new Error("Null session cookie generated");
+    }
+    return cookie;
   } catch (err) {
     error(`exhausted retries for generating banner session`, err, {
       term,
     });
     throw err;
   }
+}
 
-  // Attaches the session cookie generated in the previous step to an axios instance.
-  const cookie = sessionGenerateRes.headers["set-cookie"];
+// Returns a function that fetches course data for a given query, sectionOffset, and pageMaxSize
+function getSectionsPageCurry(
+  session: AxiosInstance,
+  pageMaxSize: number,
+  term: string,
+  subject: string,
+  course: string
+): (sectionOffset: number) => Promise<SectionsPage> {
+  // Function to build the query parameters for the Banner course search.
+  const buildParams = buildParamsCurry(term, subject, course, pageMaxSize);
+
+  return async function getSectionsPage(
+    sectionOffset: number
+  ): Promise<SectionsPage> {
+    const params = buildParams(sectionOffset);
+    const query = concatParams(params);
+    const url = searchUrlBuilder(query);
+
+    try {
+      const response = await backOff(
+        () =>
+          session.get<BannerResponse>(url).then((res) => {
+            if (res.data.data === null) {
+              throw new Error("Fetched null data");
+            }
+            return res;
+          }),
+        {
+          // See https://github.com/coveooss/exponential-backoff for options API
+          jitter: "full",
+          numOfAttempts: MAX_ATTEMPT_COUNT,
+          retry: (err, attemptNumber) => {
+            error(`an error occurred while fetching course sections`, err, {
+              term,
+              subject,
+              course,
+              sectionOffset,
+              pageMaxSize,
+              attemptNumber,
+              tryingAgain: attemptNumber < MAX_ATTEMPT_COUNT,
+            });
+            return true;
+          },
+        }
+      );
+
+      const bannerResponse = response.data;
+      if (bannerResponse.data === null) {
+        throw new Error("Fetched null data");
+      }
+
+      return {
+        sections: bannerResponse.data,
+        totalCount: bannerResponse.totalCount,
+      };
+    } catch (err) {
+      error(`exhausted retries for fetching course sections`, err, {
+        term,
+        subject,
+        course,
+        sectionOffset,
+        pageMaxSize,
+      });
+      throw err;
+    }
+  };
+}
+
+export async function download(
+  term: string,
+  options: FetchOptions = {}
+): Promise<SectionResponse[]> {
+  const { subject = "", course = "" } = options;
+
+  // Generates and attaches a session cookie for the given term to an axios instance.
+  const cookie = await generateSearchSessionCookie(term);
   const session = axios.create({
     headers: { Cookie: cookie },
   });
 
-  // Local function to build the query parameters for the Banner course search.
-  function buildParams(pageOffset: number, pageMaxSize: number) {
-    return {
-      txt_term: term,
-      txt_subj: subject,
-      txt_courseNumber: course,
-      startDatepicker: "",
-      endDatepicker: "",
-      pageOffset: pageOffset.toString(),
-      pageMaxSize: pageMaxSize.toString(),
-      sortColumn: "subjectDescription",
-      sortDirection: "asc",
-    };
-  }
-
-  // Stores the response data of concurrent fetches of course data in an array to prevent race conditions.
-  const sectionResponses: SectionResponse[][] = [];
-
-  // Returns a function that fetches course data for a given sectionOffset and pageMaxSize
-  function buildGetSectionsFunction(
-    pageMaxSize = 500
-  ): (sectionOffset: number) => Promise<number> {
-    return async function getSectionsPage(
-      sectionOffset: number
-    ): Promise<number> {
-      const params = buildParams(sectionOffset, pageMaxSize);
-      const query = concatParams(params);
-      const url = urlBuilder(query);
-
-      try {
-        const response = await backOff(
-          () =>
-            session.get<BannerResponse>(url).then((res) => {
-              if (res.data.data === null) {
-                throw new Error("Fetched null data");
-              }
-              return res;
-            }),
-          {
-            // See https://github.com/coveooss/exponential-backoff for options API
-            jitter: "full",
-            numOfAttempts: maxAttemptCount,
-            retry: (err, attemptNumber) => {
-              error(`an error occurred while fetching course sections`, err, {
-                term,
-                sectionOffset,
-                pageMaxSize,
-                attemptNumber,
-                tryingAgain: attemptNumber < maxAttemptCount,
-              });
-              return true;
-            },
-          }
-        );
-
-        // Appends the response data to sectionResponses if data is not null and it is not the initial
-        // request to get total section count. If data is null, it throws an error.
-        const bannerResponse = response.data;
-        if (bannerResponse.data !== null && pageMaxSize !== 0) {
-          sectionResponses.push(bannerResponse.data);
-        }
-        return bannerResponse.totalCount;
-      } catch (err) {
-        error(`exhausted retries for fetching course sections`, err, {
-          term,
-          sectionOffset,
-          pageMaxSize,
-        });
-        throw err;
-      }
-    };
-  }
-
-  // Gets total section count for the given query by performing an initial query to get the first section.
-  const totalCount = await buildGetSectionsFunction(0)(1);
-  const numThreads = Math.ceil(totalCount / 500);
+  // Gets total section count for the given query by fetching one section.
+  const getFirstSection = getSectionsPageCurry(
+    session,
+    0,
+    term,
+    subject,
+    course
+  );
+  const { totalCount } = await getFirstSection(1);
+  const numThreads = Math.ceil(totalCount / MAX_PAGE_SIZE);
   // Creates an array of sectionOffset values based on the number of requests required
   const offsetArr = Array<number>(numThreads)
     .fill(0)
-    .map((_, i) => 500 * i);
+    .map((_, i) => MAX_PAGE_SIZE * i);
+
+  // Stores the response data of the concurrent fetches of course data in an array
+  let sectionsPages: SectionsPage[] = [];
 
   if (numThreads >= 1) {
-    await asyncPool(numThreads, offsetArr, buildGetSectionsFunction());
+    const getSectionsPage = getSectionsPageCurry(
+      session,
+      MAX_PAGE_SIZE,
+      term,
+      subject,
+      course
+    );
+    sectionsPages = await Promise.all(
+      offsetArr.map(async (pageOffset) => getSectionsPage(pageOffset))
+    );
   }
 
-  // Concatenates all section response data into one array
+  // Concatenates all section pages into one array
   const sections: SectionResponse[] = [];
-  sectionResponses.forEach((sectionResponse) =>
-    sections.push(...sectionResponse)
+  sectionsPages.forEach((sectionsPage) =>
+    sections.push(...sectionsPage.sections)
   );
 
   return sections;
