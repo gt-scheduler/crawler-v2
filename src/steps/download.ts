@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from "axios";
 import { backOff } from "exponential-backoff";
+import asyncPool from "tiny-async-pool";
 
 import { concatParams } from "../utils";
 import { BannerResponse, SectionResponse } from "../types";
@@ -172,6 +173,7 @@ function getSectionsPageCurry(
 
 export async function download(
   term: string,
+  numThreads: number,
   options: FetchOptions = {}
 ): Promise<SectionResponse[]> {
   const { subject = "", course = "" } = options;
@@ -191,26 +193,26 @@ export async function download(
     course
   );
   const { totalCount } = await getFirstSection(1);
-  const numThreads = Math.ceil(totalCount / MAX_PAGE_SIZE);
+  const pageSize = 75;
+  const numRequests = Math.ceil(totalCount / pageSize);
+
   // Creates an array of sectionOffset values based on the number of requests required
-  const offsetArr = Array<number>(numThreads)
+  const offsetArr = Array<number>(numRequests)
     .fill(0)
-    .map((_, i) => MAX_PAGE_SIZE * i);
+    .map((_, i) => pageSize * i);
 
   // Stores the response data of the concurrent fetches of course data in an array
   let sectionsPages: SectionsPage[] = [];
 
-  if (numThreads >= 1) {
+  if (numRequests >= 1) {
     const getSectionsPage = getSectionsPageCurry(
       session,
-      MAX_PAGE_SIZE,
+      pageSize,
       term,
       subject,
       course
     );
-    sectionsPages = await Promise.all(
-      offsetArr.map(async (pageOffset) => getSectionsPage(pageOffset))
-    );
+    sectionsPages = await asyncPool(numThreads, offsetArr, getSectionsPage);
   }
 
   // Concatenates all section pages into one array

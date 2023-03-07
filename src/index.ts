@@ -193,7 +193,7 @@ async function crawlTerm(
 
   // Download the term JSON containing every course.
   const sections = await span(`downloading term`, spanFields, () =>
-    download(term)
+    download(term, DETAILS_CONCURRENCY)
   );
 
   const termData = await span(`parsing term data to JSON`, spanFields, () =>
