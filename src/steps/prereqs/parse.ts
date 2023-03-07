@@ -9,8 +9,8 @@ import {
 import { AbstractParseTreeVisitor } from "antlr4ts/tree/AbstractParseTreeVisitor";
 import { ATNSimulator } from "antlr4ts/atn/ATNSimulator";
 import { load } from "cheerio";
-import axios from "axios";
 import _ from "lodash";
+import fs from "fs";
 
 import { PrerequisitesLexer } from "./grammar/PrerequisitesLexer";
 import {
@@ -31,7 +31,7 @@ import {
   PrerequisiteSet,
 } from "../../types";
 import { regexExec } from "../../utils";
-import { downloadCourseDetails } from "../details";
+import { downloadCourseDetails, downloadCoursePrereqDetails } from "../details";
 
 const fullCourseNames = {
   "Vertically Integrated Project": "VIP",
@@ -41,22 +41,65 @@ const fullCourseNames = {
   "Cooperative Work Assignment": "COOP",
   "Cross Enrollment": "UCGA",
   "Earth and Atmospheric Sciences": "EAS",
-  Economics: "ECON",
-  "Civil and Environmental Engr": "CEE",
-  "Biological Sciences": "BIOS",
-  Biology: "BIOL",
-  "Biomed Engr/Joint Emory PKU": "BMEJ",
-  "Biomedical Engineering": "BMED",
-  Management: "MGT",
-  "Management of Technology": "MOT",
-  "Manufacturing Leadership": "MLDR",
-  "Materials Science & Engr": "MSE",
-  "Elect & Comp Engr-Professional": "ECEP",
-  "Mechanical Engineering": "ME",
   English: "ENGL",
   "Foreign Studies": "FS",
   French: "FREN",
   "Georgia Tech": "GT",
+  "Civil and Environmental Engr": "CEE",
+  "College of Architecture": "COA",
+  "College of Engineering": "COE",
+  "Computational Mod, Sim, & Data": "CX",
+  "Computational Science & Engr": "CSE",
+  "Biological Sciences": "BIOS",
+  Biology: "BIOL",
+  "Biomed Engr/Joint Emory PKU": "BMEJ",
+  "Biomedical Engineering": "BMED",
+  "Industrial Design": "ID",
+  "International Affairs": "INTA",
+  "International Logistics": "IL",
+  Internship: "INTN",
+  "Intl Executive MBA": "IMBA",
+  Japanese: "JAPN",
+  Korean: "KOR",
+  "Learning Support": "LS",
+  Linguistics: "LING",
+  "Literature, Media & Comm": "LMC",
+  Management: "MGT",
+  "Management of Technology": "MOT",
+  "Manufacturing Leadership": "MLDR",
+  "Materials Science & Engr": "MSE",
+  Accounting: "ACCT",
+  "Aerospace Engineering": "AE",
+  "Air Force Aerospace Studies": "AS",
+  "Applied Physiology": "APPH",
+  "Mechanical Engineering": "ME",
+  "Medical Physics": "MP",
+  "Military Science & Leadership": "MSL",
+  "Modern Languages": "ML",
+  Music: "MUSI",
+  "Naval Science": "NS",
+  Neuroscience: "NEUR",
+  Chemistry: "CHEM",
+  Chinese: "CHIN",
+  "City Planning": "CP",
+  Economics: "ECON",
+  "Elect & Comp Engr-Professional": "ECEP",
+  Physics: "PHYS",
+  "Political Science": "POL",
+  "Polymer, Textile and Fiber Eng": "PTFE",
+  Psychology: "PSYC",
+  "Public Policy": "PUBP",
+  "Public Policy/Joint GSU PhD": "PUBJ",
+  Russian: "RUSS",
+  Sociology: "SOC",
+  Spanish: "SPAN",
+  Mathematics: "MATH",
+  "Center Enhancement-Teach/Learn": "CETL",
+  "Chemical & Biomolecular Engr": "CHBE",
+  "Biomedical Engr/Joint Emory": "BMEM",
+  "Bldg Construction-Professional": "BCP",
+  "Building Construction": "BC",
+  Swahili: "SWAH",
   "Georgia Tech Lorraine": "GTL",
   German: "GRMN",
   "Global Media and Cultures": "GMC",
@@ -64,58 +107,46 @@ const fullCourseNames = {
   History: "HIST",
   "History, Technology & Society": "HTS",
   "Industrial & Systems Engr": "ISYE",
-  Accounting: "ACCT",
-  "Aerospace Engineering": "AE",
-  Chemistry: "CHEM",
-  Chinese: "CHIN",
-  "City Planning": "CP",
-  "International Affairs": "INTA",
-  "International Logistics": "IL",
-  Internship: "INTN",
-  "Intl Executive MBA": "IMBA",
-  "Ivan Allen College": "IAC",
-  Japanese: "JAPN",
-  Korean: "KOR",
-  "Learning Support": "LS",
-  Linguistics: "LING",
-  "Literature, Media & Comm": "LMC",
-  Psychology: "PSYC",
-  "Public Policy": "PUBP",
-  "Public Policy/Joint GSU PhD": "PUBJ",
-  Russian: "RUSS",
-  "Serve, Learn, Sustain": "SLS",
-  Sociology: "SOC",
-  Spanish: "SPAN",
-  Swahili: "SWAH",
-  "College of Architecture": "COA",
-  "College of Engineering": "COE",
-  "College of Sciences": "COS",
-  "Computational Mod, Sim, & Data": "CX",
-  "Computational Science & Engr": "CSE",
-  Mathematics: "MATH",
-  "Biomedical Engr/Joint Emory": "BMEM",
-  "Bldg Construction-Professional": "BCP",
-  "Building Construction": "BC",
-  "Center Enhancement-Teach/Learn": "CETL",
-  "Chemical & Biomolecular Engr": "CHBE",
-  Philosophy: "PHIL",
-  Physics: "PHYS",
-  "Political Science": "POL",
-  "Polymer, Textile and Fiber Eng": "PTFE",
-  "Medical Physics": "MP",
-  "Military Science & Leadership": "MSL",
-  "Modern Languages": "ML",
-  Music: "MUSI",
-  "Naval Science": "NS",
-  Neuroscience: "NEUR",
   "Nuclear & Radiological Engr": "NRE",
-  "Office of International Educ": "OIE",
-  "Industrial Design": "ID",
-  "Air Force Aerospace Studies": "AS",
-  "Applied Physiology": "APPH",
+  Philosophy: "PHIL",
   "Applied Systems Engineering": "ASE",
   Arabic: "ARBC",
   Architecture: "ARCH",
+  "Office of International Educ": "OIE",
+  "College of Sciences": "COS",
+  "Ivan Allen College": "IAC",
+  "Serve, Learn, Sustain": "SLS",
+  Persian: "PERS",
+  Hebrew: "HEBW",
+  Hindi: "HIN",
+  "Int'l Plan Co-op Abroad": "IPCO",
+  "Int'l Plan Intern Abroad": "IPIN",
+  "Int'l Plan-Exchange Program": "IPFS",
+  "Int'l Plan-Study Abroad": "IPSA",
+  Portuguese: "PORT",
+  "Professional Practice": "DOPP",
+  "Lit, Communication & Culture": "LCC",
+  "Health Performance Science": "HPS",
+  "Philosophy of Science/Tech": "PST",
+  "Health Physics": "HP",
+  "Regents' Reading Skills": "RGTR",
+  "Regents' Writing Skills": "RGTE",
+  "Chemical Engineering": "CHE",
+  "Textile & Fiber Engineering": "TFE",
+  "Textile Engineering": "TEX",
+  "Management Science": "MSCI",
+  "Materials Engineering": "MATE",
+  "Civil Engineering": "CE",
+  "Electrical Engineering": "EE",
+  "Computer Engineering": "CMPE",
+  "Military Science": "MS",
+  "Nuclear Engineering": "NE",
+  "Physical Education": "PE",
+  "Engineering Graphics": "EGR",
+  "Engr Science and Mechanics": "ESM",
+  "Technology & Science Policy": "TASP",
+  "Foreign Language": "FL",
+  "Studies Abroad": "SA",
 };
 const courseMap = new Map(Object.entries(fullCourseNames));
 const prereqSectionStart = `<SPAN class="fieldlabeltext">Prerequisites: </SPAN>`;
@@ -199,6 +230,10 @@ export function parseCoursePrereqsNew(
       prereqRow += tds.eq(1).text().concat(tds.eq(8).text());
       prereqRow = prereqRow.trim();
     } else {
+      if (!courseMap.has(tds.eq(4).text())) {
+        return;
+      }
+
       prereqRow += tds.eq(0).text().toLowerCase().concat(" ");
       prereqRow += tds.eq(1).text();
       prereqRow += tds.eq(6).text().concat(" level  ");
@@ -438,18 +473,37 @@ class PrefixNotationVisitor
   }
 }
 
-function testParsePrereqs() {
+async function testParsePrereqs() {
+  // let terms = await list();
+
+  // let map = new Map<string, string>();
+  // for (const term of terms) {
+  //   try {
+  //     const BASE_DIR = '/Users/nathangong/Library/CloudStorage/OneDrive-GeorgiaInstituteofTechnology/Georgia Tech/Bits of Good/crawler-v2/data/';
+  //     const data = fs.readFileSync(BASE_DIR + term + '.json', 'utf8');
+  //     const json = JSON.parse(data);
+  //     const fullCourseNames = json.caches.fullCourseNames;
+
+  //     for (const key of Object.keys(fullCourseNames)) {
+  //       if (!map.has(key)) {
+  //         map.set(key, fullCourseNames[key]);
+  //       }
+  //     }
+  //   } catch(e) {
+
+  //   }
+  // }
+  // console.log(map);
+
   const crn = "86077";
   const term = "202208";
   const courseId = "CEE 4600";
 
-  const prereqUrl = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites?term=${term}&courseReferenceNumber=${crn}&`;
-  axios.get<string>(prereqUrl).then(async (response) => {
+  downloadCoursePrereqDetails(term, courseId, crn).then(async (prereqHtml) => {
     const detailsHtml = await downloadCourseDetails(crn, courseId);
 
-    const { data: prereqData } = response;
     const prereqsOld = await parseCoursePrereqsOld(detailsHtml, courseId);
-    const prereqsNew = await parseCoursePrereqsNew(prereqData, courseId);
+    const prereqsNew = await parseCoursePrereqsNew(prereqHtml, courseId);
 
     console.log("Output before migration:");
     console.log(prereqsOld);

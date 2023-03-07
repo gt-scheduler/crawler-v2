@@ -17,6 +17,7 @@
     "cheerio": "^1.0.0-rc.12",
     "exponential-backoff": "^3.1.0",
     "fast-safe-stringify": "^2.0.8",
+    "fs": "^0.0.1-security",
     "lodash": "^4.17.21",
     "tiny-async-pool": "^1.2.0"
   },

@@ -54,6 +54,23 @@ export async function downloadCourseDetails(
   }
 }
 
+export async function downloadCoursePrereqDetails(
+  term: string,
+  courseId: string,
+  crn: string
+): Promise<string> {
+  const splitResult = splitCourseId(courseId);
+  if (splitResult === null) {
+    warn("could not split course ID; skipping detail scraping", { courseId });
+    return "";
+  }
+
+  const url = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites?term=${term}&courseReferenceNumber=${crn}`;
+  const { data: prereqHtml } = await axios.get(url);
+
+  return prereqHtml;
+}
+
 /**
  * Attempts to split a course ID into its subject/number components
  * @param courseId - The joined course id (SUBJECT NUMBER); i.e. `"CS 2340"`

@@ -1,5 +1,4 @@
 import asyncPool from "tiny-async-pool";
-import axios from "axios";
 
 import {
   download,
@@ -10,9 +9,9 @@ import {
   attachPrereqs,
   write,
   parseCourseDescription,
-  parseCoursePrereqsOld,
   writeIndex,
   parseCoursePrereqsNew,
+  downloadCoursePrereqDetails,
 } from "./steps";
 import { Course, Prerequisites } from "./types";
 import {
@@ -264,10 +263,8 @@ async function crawlCourseDetails(
   const [_, sections] = course;
   const [crn] = Object.values(sections)[0];
 
-  const prereqUrl = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites?term=${term}&courseReferenceNumber=${crn}&`;
-  const { data: prereqHtml } = await axios.get(prereqUrl);
-
   const detailsHtml = await downloadCourseDetails(term, courseId);
+  const prereqHtml = await downloadCoursePrereqDetails(term, courseId, crn);
   const prereqs = await parseCoursePrereqsNew(prereqHtml, courseId);
   const description = parseCourseDescription(detailsHtml, courseId);
   return [detailsHtml.length, prereqs, description];
