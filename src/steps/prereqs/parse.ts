@@ -231,6 +231,10 @@ export function parseCoursePrereqsNew(
       prereqRow = prereqRow.trim();
     } else {
       if (!courseMap.has(tds.eq(4).text())) {
+        error("Prerequisite subject doesn't exist", {
+          courseId,
+          subject: tds.eq(4).text(),
+        });
         return;
       }
 
