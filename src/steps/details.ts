@@ -56,8 +56,7 @@ export async function downloadCourseDetails(
 
 export async function downloadCoursePrereqDetails(
   term: string,
-  courseId: string,
-  crn: string
+  courseId: string
 ): Promise<string> {
   const splitResult = splitCourseId(courseId);
   if (splitResult === null) {
@@ -65,10 +64,36 @@ export async function downloadCoursePrereqDetails(
     return "";
   }
 
-  const url = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites?term=${term}&courseReferenceNumber=${crn}`;
-  const { data: prereqHtml } = await axios.get(url);
+  const [subject, number] = splitResult;
+  const parameters = {
+    term,
+    subjectCode: subject,
+    courseNumber: number,
+  };
+  const query = concatParams(parameters);
+  const url = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/courseSearchResults/getPrerequisites?${query}`;
 
-  return prereqHtml;
+  const maxAttemptCount = 10;
+  try {
+    const response = await backOff(() => axios.get<string>(url), {
+      // See https://github.com/coveooss/exponential-backoff for options API
+      jitter: "full",
+      numOfAttempts: maxAttemptCount,
+      retry: (err, attemptNumber) => {
+        error(`an error occurred while fetching details`, err, {
+          courseId,
+          url,
+          attemptNumber,
+          tryingAgain: attemptNumber < maxAttemptCount,
+        });
+        return true;
+      },
+    });
+    return response.data;
+  } catch (err) {
+    error(`exhausted retries for fetching prereqs`, err, { courseId });
+    throw err;
+  }
 }
 
 /**

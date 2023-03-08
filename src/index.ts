@@ -200,8 +200,7 @@ async function crawlTerm(
     parse(sections, CURRENT_VERSION)
   );
 
-  const allCourses = termData.courses;
-  const allCourseIds = Object.keys(allCourses);
+  const allCourseIds = Object.keys(termData.courses);
   const courseIdCount = allCourseIds.length;
   spanFields = { ...spanFields, courseIdCount };
   log(`collected all course ids`, { allCourseIds, ...spanFields });
@@ -212,32 +211,29 @@ async function crawlTerm(
     `downloading & parsing prerequisite info & course descriptions`,
     { ...spanFields, concurrency: DETAILS_CONCURRENCY },
     async () =>
-      asyncPool(
-        DETAILS_CONCURRENCY,
-        Object.entries(allCourses),
-        async (courseEntry) => {
-          const [courseId, course] = courseEntry;
-          const [coursePrereqs, courseDescription] = await span(
-            `crawling individual course`,
-            {
-              ...spanFields,
-              courseId,
-            },
-            async (setCompletionFields) => {
-              const [htmlLength, prereqs, description] =
-                await crawlCourseDetails(term, courseId, course);
-              setCompletionFields({
-                htmlLength,
-                hasDescription: description != null,
-              });
-              return [prereqs, description];
-            }
-          );
+      asyncPool(DETAILS_CONCURRENCY, allCourseIds, async (courseId) => {
+        const [coursePrereqs, courseDescription] = await span(
+          `crawling individual course`,
+          {
+            ...spanFields,
+            courseId,
+          },
+          async (setCompletionFields) => {
+            const [htmlLength, prereqs, description] = await crawlCourseDetails(
+              term,
+              courseId
+            );
+            setCompletionFields({
+              htmlLength,
+              hasDescription: description != null,
+            });
+            return [prereqs, description];
+          }
+        );
 
-          allPrereqs[courseId] = coursePrereqs;
-          allDescriptions[courseId] = courseDescription;
-        }
-      )
+        allPrereqs[courseId] = coursePrereqs;
+        allDescriptions[courseId] = courseDescription;
+      })
   );
 
   await span(`attaching prereq information`, spanFields, () =>
@@ -255,17 +251,13 @@ async function crawlTerm(
 
 async function crawlCourseDetails(
   term: string,
-  courseId: string,
-  course: Course
+  courseId: string
 ): Promise<
   [htmlLength: number, prereqs: Prerequisites | [], descriptions: string | null]
 > {
-  const [, sections] = course;
-  const [crn] = Object.values(sections)[0];
-
   const detailsHtml = await downloadCourseDetails(term, courseId);
-  const prereqHtml = await downloadCoursePrereqDetails(term, courseId, crn);
-  const prereqs = parseCoursePrereqsNew(prereqHtml, courseId);
+  const prereqHtml = await downloadCoursePrereqDetails(term, courseId);
+  const prereqs = await parseCoursePrereqsNew(prereqHtml, courseId);
   const description = parseCourseDescription(detailsHtml, courseId);
   return [detailsHtml.length, prereqs, description];
 }

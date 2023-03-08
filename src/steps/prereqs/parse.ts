@@ -495,12 +495,11 @@ async function testParsePrereqs() {
   // }
   // console.log(map);
 
-  const crn = "86077";
   const term = "202208";
   const courseId = "CEE 4600";
 
-  downloadCoursePrereqDetails(term, courseId, crn).then(async (prereqHtml) => {
-    const detailsHtml = await downloadCourseDetails(crn, courseId);
+  downloadCoursePrereqDetails(term, courseId).then(async (prereqHtml) => {
+    const detailsHtml = await downloadCourseDetails(term, courseId);
 
     const prereqsOld = await parseCoursePrereqsOld(detailsHtml, courseId);
     const prereqsNew = await parseCoursePrereqsNew(prereqHtml, courseId);
