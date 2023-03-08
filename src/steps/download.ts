@@ -221,5 +221,19 @@ export async function download(
     sections.push(...sectionsPage.sections)
   );
 
+  if (sections.length !== totalCount) {
+    const err = new Error(
+      "Fetched data count does not match total sections count"
+    );
+    error(`error counting course sections`, err, {
+      term,
+      subject,
+      course,
+      fetchedCount: sections.length,
+      totalCount,
+    });
+    throw err;
+  }
+
   return sections;
 }
