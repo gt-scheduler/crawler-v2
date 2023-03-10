@@ -9,8 +9,10 @@ export type TermData = {
 };
 
 export async function list(): Promise<string[]> {
+  const queryNum = NUM_TERMS + 4;
+
   const response = await axios.post<TermData[]>(
-    `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/classSearch/getTerms?searchTerm=&offset=1&max=${NUM_TERMS}`
+    `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/classSearch/getTerms?searchTerm=&offset=1&max=${queryNum}`
   );
   const { data } = response;
 
