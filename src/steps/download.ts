@@ -10,12 +10,6 @@ export const MAX_PAGE_SIZE = 500;
 export const MAX_ATTEMPT_COUNT = 10;
 export const PAGE_SIZE = 75; // Best runtime vs number of requests ratio
 
-export interface FetchOptions {
-  subject?: string;
-  course?: string;
-  title?: string;
-}
-
 export interface SectionsPage {
   sections: SectionResponse[];
   totalCount: number;
@@ -26,21 +20,17 @@ export interface SectionsPage {
  */
 export function buildParams({
   term,
-  subject,
-  course,
   pageOffset,
   pageMaxSize,
 }: {
   term: string;
-  subject: string;
-  course: string;
   pageOffset: number;
   pageMaxSize: number;
 }): Record<string, string> {
   return {
     txt_term: term,
-    txt_subj: subject,
-    txt_courseNumber: course,
+    txt_subj: "",
+    txt_courseNumber: "",
     startDatepicker: "",
     endDatepicker: "",
     pageOffset: pageOffset.toString(),
@@ -121,7 +111,7 @@ export async function generateSearchSessionCookies(
 }
 
 /**
- * Fetches a page of sections data for a given term, subject, course, sectionOffset, and pageMaxSize
+ * Fetches a page of sections data for a given term, sectionOffset, and pageMaxSize
  * @param session An axios instance with Banner 9 API session cookies attached
  * @pageOffset The section number starting from which sections need to be fetched
  * @param pageMaxSize The size of page returned (max. 500)
@@ -129,22 +119,16 @@ export async function generateSearchSessionCookies(
 async function getSectionsPage({
   session,
   term,
-  subject,
-  course,
   pageOffset,
   pageMaxSize,
 }: {
   session: AxiosInstance;
   term: string;
-  subject: string;
-  course: string;
   pageOffset: number;
   pageMaxSize: number;
 }): Promise<SectionsPage> {
   const params = buildParams({
     term,
-    subject,
-    course,
     pageOffset,
     pageMaxSize,
   });
@@ -175,8 +159,6 @@ async function getSectionsPage({
         retry: (err, attemptNumber) => {
           error(`an error occurred while range of section JSON pages`, err, {
             term,
-            subject,
-            course,
             pageOffset,
             pageMaxSize,
             attemptNumber,
@@ -199,8 +181,6 @@ async function getSectionsPage({
   } catch (err) {
     error(`exhausted retries for range of section JSON pages`, err, {
       term,
-      subject,
-      course,
       pageOffset,
       pageMaxSize,
     });
@@ -210,11 +190,9 @@ async function getSectionsPage({
 
 export async function download(
   term: string,
-  numThreads: number,
-  options: FetchOptions = {}
+  numThreads: number
 ): Promise<SectionResponse[]> {
-  const { subject = "", course = "" } = options;
-  let spanFields: Record<string, unknown> = { term, subject, course };
+  let spanFields: Record<string, unknown> = { term };
 
   // Generates and attaches a session cookie for the given term to an axios instance.
   const cookies = await span(
@@ -237,8 +215,6 @@ export async function download(
       const sectionsPage = await getSectionsPage({
         session,
         term,
-        subject,
-        course,
         pageOffset: 1,
         pageMaxSize: 0,
       });
@@ -259,7 +235,7 @@ export async function download(
   let sectionsPages: SectionsPage[] = [];
 
   const pageMaxSize = PAGE_SIZE;
-  spanFields = { ...spanFields, pageMaxSize };
+  spanFields = { ...spanFields, totalCount, pageMaxSize };
   await span(
     "fetching all section JSON pages in thread pool",
     spanFields,
@@ -275,8 +251,6 @@ export async function download(
               const sectionsPage = await getSectionsPage({
                 session,
                 term,
-                subject,
-                course,
                 pageOffset,
                 pageMaxSize,
               });
@@ -298,7 +272,6 @@ export async function download(
       );
       setCompletionFields({
         fetchedCount,
-        totalCount,
       });
     }
   );
@@ -315,8 +288,6 @@ export async function download(
     );
     error(`error counting course sections`, err, {
       term,
-      subject,
-      course,
       fetchedCount: sections.length,
       totalCount,
     });
