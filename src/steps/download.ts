@@ -51,14 +51,6 @@ export function buildParams({
 }
 
 /**
- * Creates a Banner 9 search url with an input query.
- * @param query - Banner search query
- */
-export function searchUrlBuilder(query: string): string {
-  return `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/searchResults?${query}`;
-}
-
-/**
  * Generates session cookies for the Banner 9 API for the given term with exponential backoff in case of errors.
  * @param term - The term whose session is created
  * @returns An array of the 2 string cookies the Banner 9 API generates
@@ -148,8 +140,8 @@ async function getSectionsPage({
     pageOffset,
     pageMaxSize,
   });
-  const query = concatParams(params);
-  const url = searchUrlBuilder(query);
+  const query = `?${concatParams(params)}`;
+  const url = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/searchResults${query}`;
 
   try {
     // Retries request with exponential back off in case of errors

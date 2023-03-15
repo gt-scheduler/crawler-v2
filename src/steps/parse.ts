@@ -112,7 +112,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     locations: [],
     finalDates: [],
     finalTimes: [],
-    fullCourseNames: {},
+    // fullCourseNames: {},
   };
 
   const updatedAt = new Date();
@@ -146,7 +146,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       cache(caches.attributes, attr)
     );
 
-    caches.fullCourseNames[section.subjectDescription] = section.subject;
+    // caches.fullCourseNames[section.subjectDescription] = section.subject;
 
     const meetings: Meeting[] = section.meetingsFaculty.map((meetingPart) => {
       // convert string location to latitude, longitude coordinates

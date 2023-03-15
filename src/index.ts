@@ -10,10 +10,10 @@ import {
   write,
   parseCourseDescription,
   writeIndex,
-  parseCoursePrereqsNew,
+  parseCoursePrereqs,
   downloadCoursePrereqDetails,
 } from "./steps";
-import { Course, Prerequisites } from "./types";
+import { Prerequisites } from "./types";
 import {
   setLogFormat,
   isLogFormat,
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
 }
 
 async function crawl(): Promise<void> {
-  const termsToScrape = await span(
+  let termsToScrape = await span(
     `listing all terms`,
     {},
     async (setFinishFields) => {
@@ -164,6 +164,8 @@ async function crawl(): Promise<void> {
       return toScrape;
     }
   );
+
+  termsToScrape = ["202302"];
 
   // Scrape each term in parallel
   await Promise.all(
@@ -256,9 +258,12 @@ async function crawlCourseDetails(
   [htmlLength: number, prereqs: Prerequisites | [], descriptions: string | null]
 > {
   const detailsHtml = await downloadCourseDetails(term, courseId);
+  const description = await parseCourseDescription(detailsHtml, courseId);
+
+  // const detailsHtml = "";
+  // const description = "";
   const prereqHtml = await downloadCoursePrereqDetails(term, courseId);
-  const prereqs = await parseCoursePrereqsNew(prereqHtml, courseId);
-  const description = parseCourseDescription(detailsHtml, courseId);
+  const prereqs = await parseCoursePrereqs(prereqHtml, courseId);
   return [detailsHtml.length, prereqs, description];
 }
 

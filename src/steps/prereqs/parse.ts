@@ -9,8 +9,6 @@ import {
 import { AbstractParseTreeVisitor } from "antlr4ts/tree/AbstractParseTreeVisitor";
 import { ATNSimulator } from "antlr4ts/atn/ATNSimulator";
 import { load } from "cheerio";
-import _ from "lodash";
-import fs from "fs";
 
 import { PrerequisitesLexer } from "./grammar/PrerequisitesLexer";
 import {
@@ -21,7 +19,7 @@ import {
   TermContext,
 } from "./grammar/PrerequisitesParser";
 import { PrerequisitesVisitor } from "./grammar/PrerequisitesVisitor";
-import { error, log } from "../../log";
+import { error, warn } from "../../log";
 import {
   MinimumGrade,
   PrerequisiteClause,
@@ -30,9 +28,11 @@ import {
   Prerequisites,
   PrerequisiteSet,
 } from "../../types";
-import { regexExec } from "../../utils";
-import { downloadCourseDetails, downloadCoursePrereqDetails } from "../details";
 
+/**
+ * A map consisting of full course names and their corresponding abbreviations
+ * from 1996-2023.
+ */
 const fullCourseNames = {
   "Vertically Integrated Project": "VIP",
   Wolof: "WOLO",
@@ -149,118 +149,107 @@ const fullCourseNames = {
   "Studies Abroad": "SA",
 };
 const courseMap = new Map(Object.entries(fullCourseNames));
-const prereqSectionStart = `<SPAN class="fieldlabeltext">Prerequisites: </SPAN>`;
-const prereqSectionRegex = /<br \/>\s*(.*)\s*<br \/>/;
+
+// Header's indices in prereq HTML table
+const Headers = {
+  Operator: 0,
+  OParen: 1,
+  Test: 2,
+  Score: 3,
+  Subject: 4,
+  CourseNumber: 5,
+  Level: 6,
+  Grade: 7,
+  CParen: 8,
+};
 
 /**
- * Parses the HTML for a single course to get its prerequisites
- * @param html - Source HTML from the course details page
+ * Converts prerequisites in HTML table format to Banner 8's string format
+ * but without semester level.
+ * @param html - Source HTML for the page
+ * @returns prereq string (e.g., "MATH 8305 Minimum Grade of D")
+ *
+ * NOTE: When a course name is missing from fullCourseNames map above,
+ * the course is removed from the prerequisite list and a warning is logged.
  */
-export function parseCoursePrereqsOld(
-  html: string,
-  courseId: string
-): Prerequisites {
-  const prereqFieldHeaderIndex = html.indexOf(prereqSectionStart);
-  if (prereqFieldHeaderIndex === -1) {
-    return [];
-  }
-
-  // The prerequisites section does exist; find the inner contents:
-  const [, contents] = regexExec(
-    prereqSectionRegex,
-    html.substring(prereqFieldHeaderIndex)
-  );
-
-  // Clean up the contents to remove the links and get plaintext
-  const cleaned = cleanContents(contents);
-
-  // Create the lexer and parser using the ANTLR 4 grammar defined in ./grammar
-  // (using antlr4ts: https://github.com/tunnelvisionlabs/antlr4ts)
-  const charStream = CharStreams.fromString(cleaned, courseId);
-  const lexer = new PrerequisitesLexer(charStream);
-  lexer.removeErrorListeners();
-  lexer.addErrorListener(new ErrorListener(courseId, cleaned));
-  const tokenStream = new CommonTokenStream(lexer);
-  const parser = new PrerequisitesParser(tokenStream);
-  parser.removeErrorListeners();
-  parser.addErrorListener(new ErrorListener(courseId, cleaned));
-
-  // Get the top-level "parse" rule's tree
-  // and pass it into our visitor to transform the parse tree
-  // into the prefix-notation parsed version
-  const tree = parser.parse();
-  const visitor = new PrefixNotationVisitor();
-  const prerequisiteClause = visitor.visit(tree);
-
-  // No prerequisites
-  if (prerequisiteClause == null) {
-    return [];
-  }
-
-  // If there is only a single prereq, return as a prefix set with "and"
-  if (isSingleCourse(prerequisiteClause)) {
-    return ["and", prerequisiteClause];
-  }
-
-  // Finally, flatten the tree so that consecutive operands
-  // for the same operator in a series of nested PrerequisiteSets
-  // are put into a single PrerequisiteSet
-  const flattened = flatten(prerequisiteClause);
-  return flattened;
-}
-
-export function parseCoursePrereqsNew(
-  html: string,
-  courseId: string
-): Prerequisites {
+function prereqHTMLToString(html: string, courseId: string) {
   const $ = load(html);
   const prereqTable = $(".basePreqTable").find("tr");
-  const prereqRows = Array<string>();
-  prereqTable.each((index, element) => {
-    if (index === 0) return;
+  const prereqs = Array<string>();
 
-    const tds = $(element).children();
-    let prereqRow = "";
+  prereqTable.each((rowIndex, element) => {
+    if (rowIndex === 0) return;
 
-    if (tds.eq(2).text() !== "") {
-      return;
-    }
-    if (tds.eq(4).text() === "") {
-      prereqRow += tds.eq(0).text().toLowerCase().concat(" ");
-      prereqRow += tds.eq(1).text().concat(tds.eq(8).text());
-      prereqRow = prereqRow.trim();
-    } else {
-      if (!courseMap.has(tds.eq(4).text())) {
-        error("Prerequisite subject doesn't exist", {
-          courseId,
-          subject: tds.eq(4).text(),
-        });
-        return;
+    const prereqRow = $(element).children();
+    let prereq = "";
+
+    let subjectCode: string | undefined;
+
+    prereqRow.each((colIndex: number): void => {
+      if (colIndex === Headers.Level) return;
+      let value = prereqRow.eq(colIndex).text();
+
+      if (value.length === 0) return;
+      if (colIndex === Headers.Operator) value = value.toLowerCase();
+      if (colIndex === Headers.Subject) {
+        subjectCode = courseMap.get(value);
+        if (!subjectCode) {
+          warn(
+            `Course has a prereq for ${value} whose abbreviation does not exist. Prereq skipped.`,
+            {
+              courseId,
+              subject: value,
+            }
+          );
+          return;
+        }
+        value = subjectCode;
       }
 
-      prereqRow += tds.eq(0).text().toLowerCase().concat(" ");
-      prereqRow += tds.eq(1).text();
-      prereqRow += tds.eq(6).text().concat(" level  ");
-      prereqRow += courseMap.get(tds.eq(4).text())!.concat(" ");
-      prereqRow += tds.eq(5).text().concat(" ");
-      prereqRow += "Minimum Grade of ".concat(tds.eq(7).text());
-      prereqRow += tds.eq(8).text().concat(" ");
-    }
+      // ignore course if course abbreviation not found
+      if (
+        (colIndex === Headers.CourseNumber || colIndex === Headers.Grade) &&
+        !subjectCode
+      )
+        return;
 
-    prereqRows.push(prereqRow);
+      if (colIndex === Headers.Grade) value = `Minimum Grade of ${value}`;
+
+      prereq += value;
+
+      if (colIndex !== Headers.OParen && colIndex !== Headers.CParen)
+        prereq += " ";
+    });
+
+    prereqs.push(prereq);
   });
 
-  const cleaned = prereqRows.join("").trim();
+  // Concatenate all prereqs and remove empty parantheses
+  return prereqs.join("").trim();
+}
+
+/**
+ * Parses the HTML of a single course to get its prerequisites
+ * @param html - Source HTML for the page
+ * @param courseId - The joined course id (SUBJECT NUMBER); i.e. `"CS 2340"`
+ */
+export function parseCoursePrereqs(
+  html: string,
+  courseId: string
+): Prerequisites {
+  // Converts prereqs in HTML table form to Banner 8 (old Oscar system that crawler-v1 uses)'s string format
+  const prereqString = prereqHTMLToString(html, courseId);
+
   // Create the lexer and parser using the ANTLR 4 grammar defined in ./grammar
   // (using antlr4ts: https://github.com/tunnelvisionlabs/antlr4ts)
-  const charStream = CharStreams.fromString(cleaned, courseId);
+  const charStream = CharStreams.fromString(prereqString, courseId);
   const lexer = new PrerequisitesLexer(charStream);
   lexer.removeErrorListeners();
-  lexer.addErrorListener(new ErrorListener(courseId, cleaned));
+  lexer.addErrorListener(new ErrorListener(courseId, prereqString));
   const tokenStream = new CommonTokenStream(lexer);
   const parser = new PrerequisitesParser(tokenStream);
   parser.removeErrorListeners();
-  parser.addErrorListener(new ErrorListener(courseId, cleaned));
+  parser.addErrorListener(new ErrorListener(courseId, prereqString));
 
   // Get the top-level "parse" rule's tree
   // and pass it into our visitor to transform the parse tree
@@ -284,20 +273,6 @@ export function parseCoursePrereqsNew(
   // are put into a single PrerequisiteSet
   const flattened = flatten(prerequisiteClause);
   return flattened;
-}
-
-/**
- * Cleans the contents from the HTML into something that can be recognized
- * by the ANTLR-generated parser according to the grammar in `./grammar`
- * @param contents - Original HTML contents from the downloaded details page
- */
-function cleanContents(contents: string): string {
-  // Replace all occurrences of HTML elements
-  // https://stackoverflow.com/a/15180206
-  const replaced = contents.replace(/<[^>]*>/g, "");
-
-  // Remove leading/trailing spaces
-  return replaced.trim();
 }
 
 /**
@@ -476,44 +451,3 @@ class PrefixNotationVisitor
     return { id: `${subject} ${number}`, grade };
   }
 }
-
-async function testParsePrereqs() {
-  // let terms = await list();
-
-  // let map = new Map<string, string>();
-  // for (const term of terms) {
-  //   try {
-  //     const BASE_DIR = '/Users/nathangong/Library/CloudStorage/OneDrive-GeorgiaInstituteofTechnology/Georgia Tech/Bits of Good/crawler-v2/data/';
-  //     const data = fs.readFileSync(BASE_DIR + term + '.json', 'utf8');
-  //     const json = JSON.parse(data);
-  //     const fullCourseNames = json.caches.fullCourseNames;
-
-  //     for (const key of Object.keys(fullCourseNames)) {
-  //       if (!map.has(key)) {
-  //         map.set(key, fullCourseNames[key]);
-  //       }
-  //     }
-  //   } catch(e) {
-
-  //   }
-  // }
-  // console.log(map);
-
-  const term = "202208";
-  const courseId = "CEE 4600";
-
-  downloadCoursePrereqDetails(term, courseId).then(async (prereqHtml) => {
-    const detailsHtml = await downloadCourseDetails(term, courseId);
-
-    const prereqsOld = await parseCoursePrereqsOld(detailsHtml, courseId);
-    const prereqsNew = await parseCoursePrereqsNew(prereqHtml, courseId);
-
-    console.log("Output before migration:");
-    console.log(prereqsOld);
-    console.log("Output after migration:");
-    console.log(prereqsNew);
-    console.log("Equal: ", _.isEqual(prereqsOld, prereqsNew));
-  });
-}
-
-testParsePrereqs();

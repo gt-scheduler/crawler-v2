@@ -76,7 +76,7 @@ export interface Caches {
    * List of the full names of courses
    * Example name: Accounting for ACCT
    * */
-  fullCourseNames: { [key: string]: string };
+  // fullCourseNames: { [key: string]: string };
 }
 
 /**
@@ -208,7 +208,7 @@ export type Meeting = [
   finalTimeIdx: number
 ];
 
-export type MinimumGrade = "A" | "B" | "C" | "D" | "T";
+export type MinimumGrade = "A" | "B" | "C" | "D" | "T" | "S" | "U" | "V";
 export type PrerequisiteCourse = { id: string; grade?: MinimumGrade };
 export type PrerequisiteClause = PrerequisiteCourse | PrerequisiteSet;
 export type PrerequisiteOperator = "and" | "or";
@@ -302,12 +302,12 @@ export type SectionResponse = {
   faculty: FacultyResponse[];
   meetingsFaculty: MeetingsFacultyResponse[];
   reservedSeatSummary: unknown;
-  sectionAttributes: sectionAttributeResponse[];
+  sectionAttributes: SectionAttributeResponse[];
   instructionalMethod: unknown;
   instructionalMethodDescription: unknown;
 };
 
-export interface sectionAttributeResponse {
+export interface SectionAttributeResponse {
   class: string;
   code: string;
   courseReferenceNumber: string;
