@@ -73,7 +73,7 @@ async function main(): Promise<void> {
 }
 
 async function crawl(): Promise<void> {
-  let termsToScrape = await span(
+  const termsToScrape = await span(
     `listing all terms`,
     {},
     async (setFinishFields) => {
@@ -164,8 +164,6 @@ async function crawl(): Promise<void> {
       return toScrape;
     }
   );
-
-  termsToScrape = ["202302"];
 
   // Scrape each term in parallel
   await Promise.all(
@@ -259,9 +257,6 @@ async function crawlCourseDetails(
 > {
   const detailsHtml = await downloadCourseDetails(term, courseId);
   const description = await parseCourseDescription(detailsHtml, courseId);
-
-  // const detailsHtml = "";
-  // const description = "";
   const prereqHtml = await downloadCoursePrereqDetails(term, courseId);
   const prereqs = await parseCoursePrereqs(prereqHtml, courseId);
   return [detailsHtml.length, prereqs, description];
