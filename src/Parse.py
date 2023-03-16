@@ -30,10 +30,10 @@ class Parser:
         eg: "10:20am - 2:50pm" -> "1020 - 1450"
         """
         matching_groups = re.findall(r"((\d{1,2}):(\d{2}) (a|p)m)", time_group)
-        if matching_groups == None or len(matching_groups) != 2: return "0000 - 0000"
+        if matching_groups == None or len(matching_groups) != 2: return "TBA"
         converted_times = []
         for time in matching_groups:
-            if len(time) != 4: return "0000 - 0000"
+            if len(time) != 4: return "TBA"
             [_, hour, minute, ampm] = time
             new_hour = str(int(hour) % 12 + (12 if ampm == 'p' else 0))
             new_hour = new_hour if len(new_hour) == 2 else f"0{new_hour}"
