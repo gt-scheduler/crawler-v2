@@ -158,8 +158,6 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       cache(caches.attributes, attr)
     );
 
-    let creditCache: number;
-
     const meetings: Meeting[] = section.meetingsFaculty.map((meetingPart) => {
       // convert string location to latitude, longitude coordinates
       const locationName = Array.from(courseLocations.keys()).find(
@@ -203,16 +201,6 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       // Set to -1 here and to be updated by Revise.py later
       const finalDateIndex = -1;
       const finalTimeIndex = -1;
-
-      if (!meetingPart.meetingTime.creditHourSession) {
-        if (!creditCache) {
-          creditCache = meetingPart.meetingTime.creditHourSession;
-        } else {
-          warn(
-            `Credit hours not consistent between meeting times for ${subjectCourse} ${sequenceNumber}`
-          );
-        }
-      }
 
       return [
         periodIndex,
