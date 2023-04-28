@@ -53,21 +53,28 @@ export async function generateSearchSessionCookies(
     const response = await backOff(
       () =>
         axios
-          .post(
-            "https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/term/search?mode=search",
-            { term },
-            {
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded; charset=UT",
-                "User-Agent": "gt-scheduler/crawler",
-              },
-            }
+          .get(
+            "https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/classSearch/getTerms?searchTerm=&offset=0&max=1"
           )
-          .then((res) => {
+          .then(async (res) => {
             // Throws an error if session cookie generated is undefined to trigger a retry
             if (res.headers["set-cookie"] === undefined) {
-              throw new Error("Null session cookie generated");
+              throw new Error("Null session cookie generated in /getTerms");
             }
+
+            await axios.post(
+              "https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/term/search?mode=search",
+              { term },
+              {
+                headers: {
+                  "Content-Type":
+                    "application/x-www-form-urlencoded; charset=UTF-8",
+                  "User-Agent": "gt-scheduler/crawler",
+                  Cookie: res.headers["set-cookie"],
+                },
+              }
+            );
+
             return res;
           }),
       {
