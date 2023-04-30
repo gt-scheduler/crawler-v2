@@ -8,7 +8,7 @@ import { error, span } from "../log";
 
 export const MAX_PAGE_SIZE = 500;
 export const MAX_ATTEMPT_COUNT = 10;
-export const PAGE_SIZE = 75; // Best runtime vs number of requests ratio
+export const PAGE_SIZE = 150; // Best runtime vs number of requests ratio
 
 export interface SectionsPage {
   sections: SectionResponse[];
@@ -54,7 +54,12 @@ export async function generateSearchSessionCookies(
       () =>
         axios
           .get(
-            "https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/classSearch/getTerms?searchTerm=&offset=0&max=1"
+            "https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/classSearch/getTerms?searchTerm=&offset=0&max=1",
+            {
+              headers: {
+                "User-Agent": "gt-scheduler/crawler",
+              },
+            }
           )
           .then(async (res) => {
             // Throws an error if session cookie generated is undefined to trigger a retry
