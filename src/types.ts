@@ -363,3 +363,8 @@ export interface MeetingsResponse {
   tuesday: boolean;
   wednesday: boolean;
 }
+
+export interface Term {
+  term: string;
+  finalized: boolean;
+}
