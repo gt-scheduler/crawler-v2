@@ -5,6 +5,7 @@ on:
       - main
   schedule:
     - cron: "*/30 * * * *"
+  workflow_dispatch:
 concurrency:
   group: crawling
 
