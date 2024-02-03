@@ -102,6 +102,8 @@ class Parser:
         titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
         idxs = []
         for idx, column in enumerate(block.columns):
+            print(block.iloc[0])
+            print(block.iloc[idx+1])
             if titleSearch.match(column):
                 if idx == len(block.columns)-1: idxs.append([idx-1, idx])
                 elif "Exam Date/Time" in block.iloc[0, idx+1]:
