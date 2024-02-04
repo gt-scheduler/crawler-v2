@@ -101,16 +101,19 @@ class Parser:
         """
         titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
         idxs = []
+        print(len(block.columns))
+        print(block)
         for idx, column in enumerate(block.columns):
-            print(block.iloc[0])
-            print(block.iloc[idx+1])
             if titleSearch.match(column):
+                # if idx == 0: idxs.append([idx, idx + 1])
                 if idx == len(block.columns)-1: idxs.append([idx-1, idx])
-                elif "Exam Date/Time" in block.iloc[0, idx+1]:
+                elif not pd.isna(block.iloc[0, idx+1]) and "Exam Date/Time" in block.iloc[0, idx+1]:
+                # elif "Exam Date/Time" in block.iloc[0, idx+1]:
                     # Check if tabula created an extra column
                     idxs.append([idx-1, idx+1])
                 else: idxs.append([idx-1, idx])
-                na = block[block.iloc[:, idxs[-1][0]+1].isna()]
+                na = block[block.iloc[:, idxs[-1][0] + 1].isna()]
+                print(na.index)
                 idxs[-1].append(na.index[0] if not na.empty else len(block))
         return idxs
 
@@ -127,10 +130,12 @@ class Parser:
         for chunk in self.read:
             # Find the chunk with the common exams
             if "Common Exams" in chunk.columns: df=chunk.copy()
+        # print(df)
         if df is None: return None
         # Cut to size
         df.columns=df.iloc[0, :]
         df.drop(inplace=True, index=0)
+        print(df)
         df = df[['Course', 'Date', 'Time']]
         df['Time'] = df['Time'].str.lower().apply(self.convertTimeGroup)
         df = df.loc[df['Course'] != "None"]
@@ -183,7 +188,12 @@ class Parser:
         for chunk in self.read:
             # Tabula breaks the file up into separate chunks,
             # some containing multiple time slots
+            print(list(chunk.columns))
+            # print(chunk)
+            print('------------------------------------------')
+            chunk = chunk[chunk.columns[::-1]]
             columns = self.getColumns(chunk)
+            print(columns)
             for start, end, terminate in columns:
                 df = chunk.iloc[:terminate, start:end+1]
 
@@ -198,7 +208,7 @@ class Parser:
                     block = df.drop(index=0).iloc[:, :2].copy()
                     block.columns = block.iloc[0]
                     schedule = pd.concat([schedule, self.parseBlock(block)], axis=0, join="outer")
-
+            # break
         schedule = schedule.apply(lambda x: x.str.strip()).apply(lambda x: x.str.replace("‐", "-"))
         schedule.set_index(['Days', 'Time'], inplace=True)
         self.schedule = schedule
@@ -211,3 +221,8 @@ class Parser:
             self.schedule.to_csv("./data/{}.csv".format(title))
         else:
             print("Schedule has not been parsed")
+
+
+# p = Parser()
+
+# p.parseFile("202402")

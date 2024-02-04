@@ -47,7 +47,7 @@ class Revise:
             if not re.match(r"\d+\.json", file.name): continue
             self.file = file
             parser.parseFile(file.stem)
-            parser.parseCommon()
+            # parser.parseCommon()
             parser.export("{}_Finals".format(file.stem))
             self.schedule = parser.schedule
             self.common = parser.common
@@ -63,8 +63,8 @@ class Revise:
         with open(self.file) as f:
             data = json.load(f)
         # Create a list of unique final dates/times
-        dates = np.sort(np.unique(np.concatenate([self.schedule['finalDate'].unique(), self.common['Date'].unique()]) if not self.schedule.empty else np.array([])))
-        times = np.unique(np.concatenate([self.schedule['finalTime'].unique(), self.common['Time'].unique()]) if not self.schedule.empty else np.array([]))
+        dates = np.sort(np.unique(np.concatenate([self.schedule['finalDate'].unique()]) if not self.schedule.empty else np.array([])))
+        times = np.unique(np.concatenate([self.schedule['finalTime'].unique()]) if not self.schedule.empty else np.array([]))
         data['caches']['finalTimes'] = times.tolist()
         data['caches']['finalDates'] = dates.tolist()
 
