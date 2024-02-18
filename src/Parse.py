@@ -187,9 +187,6 @@ class Parser:
         df = df.apply(lambda x: x.str.strip()).apply(lambda x: x.str.replace("‐", "-"))
         self.common = df
 
-    def parseCommon2024(self):
-      pass
-
     def parseFile(self, file="202208"):
       """
       Parse a single file into `self.schedule`, a Pandas DataFrame
