@@ -230,21 +230,19 @@ class ParserV1(Parser):
         [start_column, end_column, end_row]
         """
 
-        if self.year < 2024:
-          titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
-          idxs = []
-          for idx, column in enumerate(block.columns):
-              if titleSearch.match(column):
-                  if idx == len(block.columns)-1: idxs.append([idx-1, idx])
-                  elif "Exam Date/Time" in block.iloc[0, idx+1]:
-                      # Check if tabula created an extra column
-                      idxs.append([idx-1, idx+1])
-                  else: idxs.append([idx-1, idx])
-                  na = block[block.iloc[:, idxs[-1][0]+1].isna()]
-                  idxs[-1].append(na.index[0] if not na.empty else len(block))
-          return idxs
-        else:
-          return 
+        titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
+        idxs = []
+        for idx, column in enumerate(block.columns):
+            if titleSearch.match(column):
+                if idx == len(block.columns)-1: idxs.append([idx-1, idx])
+                elif "Exam Date/Time" in block.iloc[0, idx+1]:
+                    # Check if tabula created an extra column
+                    idxs.append([idx-1, idx+1])
+                else: idxs.append([idx-1, idx])
+                na = block[block.iloc[:, idxs[-1][0]+1].isna()]
+                idxs[-1].append(na.index[0] if not na.empty else len(block))
+        return idxs
+
 
 # Parser class for PDFs from 2024 and later
 class ParserV2(Parser):
