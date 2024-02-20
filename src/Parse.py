@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import *
 import PyPDF2
 import requests
+import os 
 
 # More documentation available: https://github.com/gt-scheduler/crawler/wiki/Finals-Scraping#revise
 
@@ -40,83 +41,6 @@ class Parser:
             new_hour = new_hour if len(new_hour) == 2 else f"0{new_hour}"
             converted_times.append(f"{new_hour}{minute}")
         return " - ".join(converted_times)
-
-    def parseBlock(self, block: pd.DataFrame) -> pd.DataFrame:
-        """
-        Parse a single time block
-        """
-        block.columns = ["Days", "Time"]
-        # Tabula combines the Start Time, End Time, and Exam Date/Time columns
-        # Requires regex to split them apart
-        sectionDate = ""
-        sectionTime = ""
-        dateSearch = re.compile(r"\w+,\s\w+\s\d+")
-        timeSearch = re.compile(r"\d+:\d\d\s[PA]M\s*(‐|-)\s*\d+:\d\d [PA]M")
-        hyphen = re.compile(r"(?<=[ap]m)\s(?=\d)")
-
-        def date (n: re.Match):
-            nonlocal sectionDate
-            try:
-                date = datetime.strptime(n.group(), "%A, %b %d")
-            except ValueError:
-                # Full month name was used
-                date = datetime.strptime(n.group(), "%A, %B %d")
-            date = date.replace(year=self.year)
-            sectionDate = date.strftime(self.dateFormat)
-            return ""
-
-        def time (n: re.Match):
-            nonlocal sectionTime
-            if sectionTime: return ""
-            group = n.group().lower()
-            sectionTime = self.convertTimeGroup(group)
-            return ""
-
-        for index, row in block.iterrows():
-            # Add the finals date/time as a separate column
-            try:
-                row[1] = dateSearch.sub(date, row[1])
-                row[1] = timeSearch.sub(time, row[1])
-                row[1] = hyphen.sub(" - ", row[1].lower())
-                row[1] = self.convertTimeGroup(row[1])
-            except:
-                print(block)
-                print()
-                print(row)
-                print(row[1])
-                raise Exception
-            block.loc[index, 'finalDate'] = sectionDate
-            block.loc[index, 'finalTime'] = sectionTime
-
-        # Go back and add the first row's time
-        block['finalTime'].iloc[0] = block['finalTime'].iloc[1]
-        # print(block)
-        return block
-
-    def getColumns(self, block: pd.DataFrame) -> List[List[int]]:
-        """_summary_
-        Given one block created by tabula, determine which columns to parse
-        Tabula breaks the page up into chunks, so uneven boxes can result in
-        weird breaks
-        Return a list of columns to parse in the format
-        [start_column, end_column, end_row]
-        """
-
-        if self.year < 2024:
-          titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
-          idxs = []
-          for idx, column in enumerate(block.columns):
-              if titleSearch.match(column):
-                  if idx == len(block.columns)-1: idxs.append([idx-1, idx])
-                  elif "Exam Date/Time" in block.iloc[0, idx+1]:
-                      # Check if tabula created an extra column
-                      idxs.append([idx-1, idx+1])
-                  else: idxs.append([idx-1, idx])
-                  na = block[block.iloc[:, idxs[-1][0]+1].isna()]
-                  idxs[-1].append(na.index[0] if not na.empty else len(block))
-          return idxs
-        else:
-          return 
 
     def parseCommon(self):
         """
@@ -187,14 +111,148 @@ class Parser:
         df = df.apply(lambda x: x.str.strip()).apply(lambda x: x.str.replace("‐", "-"))
         self.common = df
 
-    def parseFile(self, file="202208"):
-      """
-      Parse a single file into `self.schedule`, a Pandas DataFrame
-      Takes a single parameter which is a key in matrix.json
-      """
-      self.year = int(file[0:4])
+    def export(self, title="Finals Schedule"):
+        """
+        Export the data to a CSV file
+        """
+        if self.schedule is not None:
+            self.schedule.to_csv("./data/{}.csv".format(title))
+        else:
+            print("Schedule has not been parsed")
+    
+# Parser class for PDFs from 2023 and earlier
+class ParserV1(Parser):
+    def __init__(self):
+        super().__init__()
 
-      def crop_pdf(input_path, output_path, left, bottom, right, top):
+    def parseFile(self, file="202208"):
+        """
+        Parse a single file into `self.schedule`, a Pandas DataFrame
+        Takes a single parameter which is a key in matrix.json
+        """
+        self.year = int(file[0:4])
+
+        print(f"Parsing file: {file}")
+
+        # TODO: CHANGE PATH BEFORE COMMITTING
+        with open(Path("./src/matrix.json").resolve().absolute()) as f:
+            locations = json.load(f)
+        if file in locations:
+            url = locations[file] # address for the PDF
+        else:
+            print("File was not found")
+            return None
+
+        self.read = tabula.read_pdf(url, pages=1)
+
+        
+        schedule = pd.DataFrame()
+        sections = set() # Keep track of time blocks already parsed
+        for chunk in self.read:
+            # Tabula breaks the file up into separate chunks,
+            # some containing multiple time slots
+            columns = self.getColumns(chunk)
+            for start, end, terminate in columns:
+              df = chunk.iloc[:terminate, start:end+1]
+
+              # Fix case where tabula breaks the columns incorrectly
+              if len(df.columns) == 3:
+                df.iloc[:, 1] = df.iloc[:, 1:].fillna("").agg(" ".join, axis=1).apply(str.strip)
+                df = df.iloc[:, :-1]
+
+              if df.columns[1] not in sections:
+                sections.add(df.columns[1])
+                print("Parsing: {}".format(df.columns[1]))
+                block = df.drop(index=0).iloc[:, :2].copy()
+                block.columns = block.iloc[0]
+                schedule = pd.concat([schedule, self.parseBlock(block)], axis=0, join="outer")
+        schedule = schedule.apply(lambda x: x.str.strip()).apply(lambda x: x.str.replace("‐", "-"))
+        schedule.set_index(['Days', 'Time'], inplace=True)
+        self.schedule = schedule
+
+    def parseBlock(self, block: pd.DataFrame) -> pd.DataFrame:
+        """
+        Parse a single time block
+        """
+        block.columns = ["Days", "Time"]
+        # Tabula combines the Start Time, End Time, and Exam Date/Time columns
+        # Requires regex to split them apart
+        sectionDate = ""
+        sectionTime = ""
+        dateSearch = re.compile(r"\w+,\s\w+\s\d+")
+        timeSearch = re.compile(r"\d+:\d\d\s[PA]M\s*(‐|-)\s*\d+:\d\d [PA]M")
+        hyphen = re.compile(r"(?<=[ap]m)\s(?=\d)")
+
+        def date (n: re.Match):
+            nonlocal sectionDate
+            try:
+                date = datetime.strptime(n.group(), "%A, %b %d")
+            except ValueError:
+                # Full month name was used
+                date = datetime.strptime(n.group(), "%A, %B %d")
+            date = date.replace(year=self.year)
+            sectionDate = date.strftime(self.dateFormat)
+            return ""
+
+        def time (n: re.Match):
+            nonlocal sectionTime
+            if sectionTime: return ""
+            group = n.group().lower()
+            sectionTime = self.convertTimeGroup(group)
+            return ""
+
+        for index, row in block.iterrows():
+            # Add the finals date/time as a separate column
+            try:
+                row[1] = dateSearch.sub(date, row[1])
+                row[1] = timeSearch.sub(time, row[1])
+                row[1] = hyphen.sub(" - ", row[1].lower())
+                row[1] = self.convertTimeGroup(row[1])
+            except:
+                print(block)
+                print()
+                print(row)
+                print(row[1])
+                raise Exception
+            block.loc[index, 'finalDate'] = sectionDate
+            block.loc[index, 'finalTime'] = sectionTime
+
+        # Go back and add the first row's time
+        block['finalTime'].iloc[0] = block['finalTime'].iloc[1]
+        return block
+
+    def getColumns(self, block: pd.DataFrame) -> List[List[int]]:
+        """_summary_
+        Given one block created by tabula, determine which columns to parse
+        Tabula breaks the page up into chunks, so uneven boxes can result in
+        weird breaks
+        Return a list of columns to parse in the format
+        [start_column, end_column, end_row]
+        """
+
+        if self.year < 2024:
+          titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
+          idxs = []
+          for idx, column in enumerate(block.columns):
+              if titleSearch.match(column):
+                  if idx == len(block.columns)-1: idxs.append([idx-1, idx])
+                  elif "Exam Date/Time" in block.iloc[0, idx+1]:
+                      # Check if tabula created an extra column
+                      idxs.append([idx-1, idx+1])
+                  else: idxs.append([idx-1, idx])
+                  na = block[block.iloc[:, idxs[-1][0]+1].isna()]
+                  idxs[-1].append(na.index[0] if not na.empty else len(block))
+          return idxs
+        else:
+          return 
+
+# Parser class for PDFs from 2024 and later
+class ParserV2(Parser):
+    def __init__(self):
+        super().__init__()
+
+    # Crops PDF using PyPDF2
+    def crop_pdf(self, input_path, output_path, left=16.4 * 72, bottom=0 * 72, right=1 * 72, top=11 * 72):
         with open(input_path, 'rb') as file:
           reader = PyPDF2.PdfReader(file)
           writer = PyPDF2.PdfWriter()
@@ -207,24 +265,26 @@ class Parser:
 
           with open(output_path, 'wb') as output_file:
               writer.write(output_file)
-      
-      print(f"Parsing file: {file}")
 
-      # TODO: CHANGE PATH BEFORE COMMITTING
-      with open(Path("./src/matrix.json").resolve().absolute()) as f:
-          locations = json.load(f)
-      if file in locations:
-          url = locations[file] # address for the PDF
-      else:
-          print("File was not found")
-          return None
+    def parseFile(self, file):
+        """
+        Parse a single file into `self.schedule`, a Pandas DataFrame
+        Takes a single parameter which is a key in matrix.json
+        """
+        self.year = int(file[0:4])
+        print(f"Parsing file: {file}")
 
-      # crop the pdf if it's from 2024 or later
-      if self.year >= 2024:
+        with open(Path("./src/matrix.json").resolve().absolute()) as f:
+            locations = json.load(f)
+        if file in locations:
+            url = locations[file] # address for the PDF
+        else:
+            print("File was not found")
+            return None
+
         response = requests.get(url)
         with open(f"downloaded_{file}.pdf", 'wb') as f:
           f.write(response.content)
-
 
         # coordinates in pdf point system
         top = 16.4 * 72
@@ -232,115 +292,83 @@ class Parser:
         bottom = 1 * 72
         right = 11 * 72
 
-        crop_pdf(f"downloaded_{file}.pdf", f"cropped_{file}.pdf", left, bottom, right, top)
+        self.crop_pdf(f"downloaded_{file}.pdf", f"cropped_{file}.pdf", left, bottom, right, top)
         self.read = tabula.read_pdf(f"cropped_{file}.pdf", pages=1)
-      else:
-        self.read = tabula.read_pdf(url, pages=1)
+        os.unlink(f"downloaded_{file}.pdf")
+        os.unlink(f"cropped_{file}.pdf")
+        
+        schedule = pd.DataFrame()
 
-      
-      schedule = pd.DataFrame()
-      sections = set() # Keep track of time blocks already parsed
-      for chunk in self.read:
-        if self.year >= 2024:
-          if "Reading and Conflict Periods" in chunk.columns or "Common Exams" in chunk.columns:
-            print(chunk)
-            continue
-          
-          schedule = pd.concat([schedule, self.parse2024block(chunk)], axis=0, join="outer")
+        for chunk in self.read:
+            if "Reading and Conflict Periods" in chunk.columns or "Common Exams" in chunk.columns:
+              continue
+            
+            schedule = pd.concat([schedule, self.parseBlock(chunk)], axis=0, join="outer")
+        
+        schedule = schedule.apply(lambda x: x.str.strip()).apply(lambda x: x.str.replace("‐", "-"))
+        schedule.set_index(['Days', 'Time'], inplace=True)
+        self.schedule = schedule
+
+    def parseBlock(self, block):
+        titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
+
+        # check if the title for the block was parsed as a column name or a row
+        for c in block.columns:
+            if titleSearch.match(c):
+                break
         else:
-          # Tabula breaks the file up into separate chunks,
-          # some containing multiple time slots
-          columns = self.getColumns(chunk)
-          for start, end, terminate in columns:
-            df = chunk.iloc[:terminate, start:end+1]
+            block = block.drop(index=[0])
+            block = block.reset_index(drop=True)
 
-            # Fix case where tabula breaks the columns incorrectly
-            if len(df.columns) == 3:
-              df.iloc[:, 1] = df.iloc[:, 1:].fillna("").agg(" ".join, axis=1).apply(str.strip)
-              df = df.iloc[:, :-1]
-
-            if df.columns[1] not in sections:
-              sections.add(df.columns[1])
-              print("Parsing: {}".format(df.columns[1]))
-              block = df.drop(index=0).iloc[:, :2].copy()
-              block.columns = block.iloc[0]
-              schedule = pd.concat([schedule, self.parseBlock(block)], axis=0, join="outer")
-      schedule = schedule.apply(lambda x: x.str.strip()).apply(lambda x: x.str.replace("‐", "-"))
-      schedule.set_index(['Days', 'Time'], inplace=True)
-      self.schedule = schedule
-
-    def export(self, title="Finals Schedule"):
-        """
-        Export the data to a CSV file
-        """
-        if self.schedule is not None:
-            self.schedule.to_csv("./data/{}.csv".format(title))
-        else:
-            print("Schedule has not been parsed")
-
-    def parse2024block(self, block):
-      titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
-
-      for c in block.columns:
-        if titleSearch.match(c):
-            break
-      else:
-        block = block.drop(index=[0])
+        block = block.drop(index=0)
         block = block.reset_index(drop=True)
 
-      block = block.drop(index=0)
-      block = block.reset_index(drop=True)
+        block.columns = ["Days", "Time"]
 
-      block.columns = ["Days", "Time"]
+        sectionDate = ""
+        sectionTime = ""
+        dateSearch = re.compile(r"\w+,\s\w+\s\d+")
+        timeSearch = re.compile(r"\d+:\d\d\s[PA]M\s*(‐|-)\s*\d+:\d\d [PA]M")
 
-      sectionDate = ""
-      sectionTime = ""
-      dateSearch = re.compile(r"\w+,\s\w+\s\d+")
-      timeSearch = re.compile(r"\d+:\d\d\s[PA]M\s*(‐|-)\s*\d+:\d\d [PA]M")
-
-      def split_schedule(schedule):
-        pattern = r'([A-Za-z]+)(\d{1,2}:\d{2} [AP]M)(\d{1,2}:\d{2} [AP]M)'
-        matches = re.match(pattern, schedule)
-        if matches:
-            days = matches.group(1)
-            start_time = matches.group(2)
-            end_time = matches.group(3)
-            return days, start_time, end_time
-        else:
-            return None, None, None
+        def split_schedule(schedule):
+            pattern = r'([A-Za-z]+)(\d{1,2}:\d{2} [AP]M)(\d{1,2}:\d{2} [AP]M)'
+            matches = re.match(pattern, schedule)
+            if matches:
+                days = matches.group(1)
+                start_time = matches.group(2)
+                end_time = matches.group(3)
+                return days, start_time, end_time
+            else:
+                return None, None, None
+            
+        def date (n: re.Match):
+            nonlocal sectionDate
+            try:
+                date = datetime.strptime(n.group(), "%A, %b %d")
+            except ValueError:
+                # Full month name was used
+                date = datetime.strptime(n.group(), "%A, %B %d")
+            date = date.replace(year=self.year)
+            sectionDate = date.strftime(self.dateFormat)
+            return ""
         
-      def date (n: re.Match):
-        nonlocal sectionDate
-        try:
-            date = datetime.strptime(n.group(), "%A, %b %d")
-        except ValueError:
-            # Full month name was used
-            date = datetime.strptime(n.group(), "%A, %B %d")
-        date = date.replace(year=self.year)
-        sectionDate = date.strftime(self.dateFormat)
-        return ""
-      
-      def time (n: re.Match):
-        nonlocal sectionTime
-        if sectionTime: return ""
-        group = n.group().lower()
-        sectionTime = self.convertTimeGroup(group)
-        return ""
-  
-      for index, row in block.iterrows(): 
-        days, start_time, end_time = split_schedule(row[0])
-        if not pd.isna(row[1]):
-          row[1] = dateSearch.sub(date, row[1])
-          row[1] = timeSearch.sub(time, row[1])
+        def time (n: re.Match):
+            nonlocal sectionTime
+            if sectionTime: return ""
+            group = n.group().lower()
+            sectionTime = self.convertTimeGroup(group)
+            return ""
 
-        block.loc[index, 'finalDate'] = sectionDate
-        block.loc[index, 'finalTime'] = sectionTime
-        block.loc[index, 'Days'] = days
-        block.loc[index, 'Time'] = self.convertTimeGroup(f"{start_time.lower()} - {end_time.lower()}")
+        # split data into the four different columns 
+        for index, row in block.iterrows(): 
+            days, start_time, end_time = split_schedule(row[0])
+            if not pd.isna(row[1]):
+                row[1] = dateSearch.sub(date, row[1])
+                row[1] = timeSearch.sub(time, row[1])
 
-      return block
+            block.loc[index, 'finalDate'] = sectionDate
+            block.loc[index, 'finalTime'] = sectionTime
+            block.loc[index, 'Days'] = days
+            block.loc[index, 'Time'] = self.convertTimeGroup(f"{start_time.lower()} - {end_time.lower()}")
 
-# p = Parser()
-
-# p.parseFile("202402")
-# p.parseCommon()
+        return block
