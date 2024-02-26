@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from Parse import Parser
+from Parse import ParserV1, ParserV2
 import json
 from typing import Tuple
 import pandas as pd
@@ -43,8 +43,10 @@ class Revise:
     def iterFiles(self):
         # Attempt to get the finals information for each term
         for file in Path("./data/").resolve().absolute().iterdir():
-            parser = Parser()
+
             if not re.match(r"\d+\.json", file.name): continue
+            year = int(file.stem[:4])
+            parser = ParserV1() if year < 2024 else ParserV2()
             self.file = file
             parser.parseFile(file.stem)
             parser.parseCommon()
