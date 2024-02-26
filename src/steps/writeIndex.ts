@@ -34,13 +34,10 @@ export async function writeIndex(termsFinalized: string[]): Promise<void> {
   });
 
   // Write the list of terms out to `index.json`
-  const data: { [key: string]: any } = {};
-  termsInfo.forEach((item) => {
-    data[item.term] = item.finalized;
-  });
   const jsonData = {
-    terms: data,
+    terms: termsInfo,
   };
+
   const termPath = path.resolve(dataPath, `index.json`);
   return writeFile(termPath, jsonData);
 }
