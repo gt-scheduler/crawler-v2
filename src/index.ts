@@ -82,11 +82,13 @@ async function main(): Promise<void> {
 }
 
 async function crawl(): Promise<void> {
-  const termsToScrape = await span(
+  const results: [string[], string[]] = await span(
     `listing all terms`,
     {},
     async (setFinishFields) => {
-      const terms = await list();
+      const lists = await list();
+      const terms = lists[0];
+      const termInfo = lists[1];
 
       let toScrape;
       // If no term is manually set, scrape the most recent terms
@@ -179,9 +181,11 @@ async function crawl(): Promise<void> {
         termsToScrape: toScrape,
         desiredNumTerms: NUM_TERMS,
       });
-      return toScrape;
+      return [toScrape, termInfo];
     }
   );
+  const termsToScrape: string[] = results[0];
+  const termInfo = results[1];
 
   // Scrape each term in parallel
   await Promise.all(
@@ -199,7 +203,7 @@ async function crawl(): Promise<void> {
   );
 
   // Output a JSON file containing all of the scraped term files
-  await writeIndex();
+  await writeIndex(termInfo);
 }
 
 async function crawlTerm(
