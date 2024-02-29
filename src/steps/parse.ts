@@ -115,7 +115,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     // fullCourseNames: {},
   };
 
-  const pseudoCourses: string[] = [];
+  const sectionCrns: string[] = [];
 
   const updatedAt = new Date();
   const missingLocations = new Set<string>();
@@ -229,8 +229,6 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       courses[courseName] = [
         courseTitle,
         sectionsMap,
-        // Start off with an empty prerequisites array
-        [],
         // Start off with no description
         null,
       ];
@@ -249,12 +247,9 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       [],
     ];
 
-    // Check if parsed section possibly has unique prerequisites
-    // This appears to primarily only happen to 3-letter section numbers, e.g. ECON 4803 PM1 and GD1
+    // Store course ID with section number to obtain prerequisites for all sections
     // These sections will be stored as pseudo-courses with CRNs included for prerequisite attaching
-    if (sequenceNumber.length > 1) {
-      pseudoCourses.push(`${courseName} <${courseReferenceNumber}>`);
-    }
+    sectionCrns.push(`${courseName} <${courseReferenceNumber}>`);
   });
 
   if (missingLocations.size > 0) {
@@ -265,7 +260,5 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     });
   }
 
-  const combinedCourseIds = Object.keys(courses).concat(pseudoCourses);
-
-  return { courses, caches, updatedAt, version, combinedCourseIds };
+  return { courses, caches, updatedAt, version, sectionCrns };
 }

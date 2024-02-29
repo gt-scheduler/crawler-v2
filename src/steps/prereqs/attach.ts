@@ -21,10 +21,7 @@ export function attachPrereqs(
     const courseId = splitCourse.slice(0, 2).join(" ");
     const crn = splitCourse?.[2];
 
-    if (!crn && courseId in termData.courses) {
-      // eslint-disable-next-line no-param-reassign
-      termData.courses[courseId][2] = prerequisites[courseId];
-    } else if (crn && courseId in termData.courses) {
+    if (crn && courseId in termData.courses) {
       // Populates section prerequisites by matching CRNs to find the correct section to attach to
       Object.keys(termData.courses[courseId][1]).forEach((section) => {
         if (termData.courses[courseId][1][section][0] === crn) {
@@ -36,7 +33,7 @@ export function attachPrereqs(
 
       // [...][8] = prerequisites[courseId]
     } else {
-      warn(`received prerequisite data for unknown course`, { courseId });
+      warn(`received prerequisite data for unknown course`, { courseId, crn });
     }
   });
 }

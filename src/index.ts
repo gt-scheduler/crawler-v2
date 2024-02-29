@@ -218,12 +218,12 @@ async function crawlTerm(
     parse(sections, CURRENT_VERSION)
   );
 
-  // const allCourseIds = Object.keys(termData.courses);
-  const allCourseIds = termData.combinedCourseIds;
+  // const sectionCrns = Object.keys(termData.courses);
+  const { sectionCrns } = termData;
 
-  const courseIdCount = allCourseIds.length;
+  const courseIdCount = sectionCrns.length;
   spanFields = { ...spanFields, courseIdCount };
-  log(`collected all course ids`, { allCourseIds, ...spanFields });
+  log(`collected all course sections`, { sectionCrns, ...spanFields });
 
   const allPrereqs: Record<string, Prerequisites | []> = {};
   const allDescriptions: Record<string, string | null> = {};
@@ -231,7 +231,7 @@ async function crawlTerm(
     `downloading & parsing prerequisite info & course descriptions`,
     { ...spanFields, concurrency: DETAILS_CONCURRENCY },
     async () =>
-      asyncPool(DETAILS_CONCURRENCY, allCourseIds, async (courseId) => {
+      asyncPool(DETAILS_CONCURRENCY, sectionCrns, async (courseId) => {
         const [coursePrereqs, courseDescription] = await span(
           `crawling individual course`,
           {

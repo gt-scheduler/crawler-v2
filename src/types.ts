@@ -26,7 +26,7 @@ export interface TermData {
    * Contains all course IDs that require parsing, including pseudo-courses (sections)
    * that contain prerequisites different from the other course sections
    */
-  combinedCourseIds: string[];
+  sectionCrns: string[];
 }
 
 /**
@@ -98,24 +98,6 @@ export type Course = [
    * the section IDs are the keys (`"A"`, `"B"`, `"S2"`, etc.)
    */
   sections: Record<string, Section>,
-  /**
-     * a tree of prerequisite classes and the necessary grades in them
-     * (using boolean expressions in prefix order)
-     *
-     * @example
-     *
-     * ```json
-       [
-         "and",
-         [
-            "or",
-            {"id":"CS 3510", "grade":"C"},
-            {"id":"CS 3511", "grade":"C"}
-         ]
-       ]
-     * ```
-     */
-  prerequisites: Prerequisites,
   /**
    * Description pulled from Oscar
    */
