@@ -13,7 +13,7 @@ import {
   parseCoursePrereqs,
   downloadCoursePrereqDetails,
 } from "./steps";
-import { Prerequisites } from "./types";
+import { Prerequisites, SectionId } from "./types";
 import {
   setLogFormat,
   isLogFormat,
@@ -222,12 +222,11 @@ async function crawlTerm(
     parse(sections, CURRENT_VERSION)
   );
 
-  // const sectionCrns = Object.keys(termData.courses);
-  const { sectionCrns } = termData;
+  const { sectionIds } = termData;
 
-  const courseIdCount = sectionCrns.length;
-  spanFields = { ...spanFields, courseIdCount };
-  log(`collected all course sections`, { sectionCrns, ...spanFields });
+  const sectionIdCount = sectionIds.length;
+  spanFields = { ...spanFields, sectionIdCount };
+  log(`collected all course sections`, { sectionIds, ...spanFields });
 
   const allPrereqs: Record<string, Prerequisites | []> = {};
   const allDescriptions: Record<string, string | null> = {};
@@ -235,17 +234,17 @@ async function crawlTerm(
     `downloading & parsing prerequisite info & course descriptions`,
     { ...spanFields, concurrency: DETAILS_CONCURRENCY },
     async () =>
-      asyncPool(DETAILS_CONCURRENCY, sectionCrns, async (courseId) => {
+      asyncPool(DETAILS_CONCURRENCY, sectionIds, async (sectionId) => {
         const [coursePrereqs, courseDescription] = await span(
           `crawling individual course`,
           {
             ...spanFields,
-            courseId,
+            sectionId,
           },
           async (setCompletionFields) => {
             const [htmlLength, prereqs, description] = await crawlCourseDetails(
               term,
-              courseId
+              sectionId
             );
             setCompletionFields({
               htmlLength,
@@ -255,7 +254,9 @@ async function crawlTerm(
           }
         );
 
-        allPrereqs[courseId] = coursePrereqs;
+        const courseId = `${sectionId.subject} ${sectionId.number}`;
+
+        allPrereqs[sectionId.crn] = coursePrereqs;
         allDescriptions[courseId] = courseDescription;
       })
   );
@@ -275,14 +276,14 @@ async function crawlTerm(
 
 async function crawlCourseDetails(
   term: string,
-  courseId: string
+  sectionId: SectionId
 ): Promise<
   [htmlLength: number, prereqs: Prerequisites | [], descriptions: string | null]
 > {
-  const detailsHtml = await downloadCourseDetails(term, courseId);
-  const description = await parseCourseDescription(detailsHtml, courseId);
-  const prereqHtml = await downloadCoursePrereqDetails(term, courseId);
-  const prereqs = await parseCoursePrereqs(prereqHtml, courseId);
+  const detailsHtml = await downloadCourseDetails(term, sectionId);
+  const description = await parseCourseDescription(detailsHtml, sectionId);
+  const prereqHtml = await downloadCoursePrereqDetails(term, sectionId);
+  const prereqs = await parseCoursePrereqs(prereqHtml, sectionId);
   return [detailsHtml.length, prereqs, description];
 }
 

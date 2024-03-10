@@ -26,7 +26,7 @@ export interface TermData {
    * Contains all course IDs that require parsing, including pseudo-courses (sections)
    * that contain prerequisites different from the other course sections
    */
-  sectionCrns: string[];
+  sectionIds: SectionId[];
 }
 
 /**
@@ -377,3 +377,10 @@ export interface Term {
   term: string;
   finalized: boolean;
 }
+
+export type SectionId = {
+  subject: string;
+  number: string;
+  section: string;
+  crn: string;
+};

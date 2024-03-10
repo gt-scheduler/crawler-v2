@@ -6,9 +6,11 @@ import {
   Section,
   Location,
   SectionResponse,
+  SectionId,
 } from "../types";
 import { cache } from "../utils";
 import { warn } from "../log";
+import { splitCourseId } from "./details";
 
 /**
  * A map consisting of course locations and corresponding coordinates
@@ -115,7 +117,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     // fullCourseNames: {},
   };
 
-  const sectionCrns: string[] = [];
+  const sectionIds: SectionId[] = [];
 
   const updatedAt = new Date();
   const missingLocations = new Set<string>();
@@ -243,13 +245,21 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       attributeIndices,
       -1,
       courseTitle,
-      // Start off with empty course prerequisities
+      // Start off with empty section prerequisities
       [],
     ];
 
-    // Store course ID with section number to obtain prerequisites for all sections
-    // These sections will be stored as pseudo-courses with CRNs included for prerequisite attaching
-    sectionCrns.push(`${courseName} <${courseReferenceNumber}>`);
+    // Store section details into object to facilitate scraping all sections for prerequisites
+    const tempSplitId = splitCourseId(courseName);
+    if (tempSplitId) {
+      const [courseSubject, courseNumber] = tempSplitId;
+      sectionIds.push({
+        subject: courseSubject,
+        number: courseNumber,
+        section: sequenceNumber,
+        crn: courseReferenceNumber,
+      });
+    }
   });
 
   if (missingLocations.size > 0) {
@@ -260,5 +270,5 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     });
   }
 
-  return { courses, caches, updatedAt, version, sectionCrns };
+  return { courses, caches, updatedAt, version, sectionIds };
 }
