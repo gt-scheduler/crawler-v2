@@ -110,21 +110,8 @@ Object.keys(profCourses).forEach((prof) => {
       };
       profUniqueSectionCount += 1;
     }
-    // Object.keys(profCourses[prof][courseId]).forEach((prereqHash) => {
-    //   const sections = profCourses[prof][courseId][prereqHash];
-    //   if (sections.length > 1) {
-    //     filteredProfCourses[prof] = {
-    //       ...filteredProfCourses[prof],
-    //       [courseId]: {
-    //         ...filteredProfCourses[prof]?.[courseId],
-    //         [prereqHash]: sections,
-    //       },
-    //     };
-    //   }
-    // });
   });
 });
-coursesWithUniqueSections.filter((profObj) => profObj);
 
 fs.writeFileSync(
   "./data/diff_prereqs.json",
