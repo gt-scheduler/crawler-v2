@@ -142,8 +142,12 @@ class ParserV1(Parser):
         else:
             print("File was not found")
             return None
-
-        self.read = tabula.read_pdf(url, pages=1)
+        try:
+          self.read = tabula.read_pdf(url, pages=1)
+        except Exception as e:
+          print(f'Tabula was unable to parse the matrix for : {file}')
+          print(e)
+          return None
 
         
         schedule = pd.DataFrame()
@@ -279,8 +283,13 @@ class ParserV2(Parser):
         else:
             print("File was not found")
             return None
+        try:
+          response = requests.get(url)
+        except Exception as e:
+            print(f"Unable to download Finals Matrix for: {file}")
+            print(e)
+            return None
 
-        response = requests.get(url)
         with open(f"downloaded_{file}.pdf", 'wb') as f:
           f.write(response.content)
 
