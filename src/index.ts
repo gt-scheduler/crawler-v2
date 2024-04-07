@@ -24,6 +24,7 @@ import {
   getLogFormat,
 } from "./log";
 import { getIntConfig } from "./utils";
+import categorizePrereqs from "./steps/prereqs/categorizePrereqs";
 
 // Current scraped JSON version
 const CURRENT_VERSION = 3;
@@ -267,6 +268,10 @@ async function crawlTerm(
 
   await span(`attaching course descriptions`, spanFields, () =>
     attachDescriptions(termData, allDescriptions)
+  );
+
+  await span(`categorizing prerequisites`, spanFields, () =>
+    categorizePrereqs(termData)
   );
 
   await span(`writing scraped data to disk`, spanFields, () =>

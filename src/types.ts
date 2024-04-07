@@ -101,7 +101,14 @@ export type Course = [
   /**
    * Description pulled from Oscar
    */
-  description: string | null
+  description: string | null,
+  /**
+   * level of prerequisite uniqueness
+   * 0: all course sections have the same prerequisites
+   * 1: all course sections grouped by professor have the same prerequisites
+   * 2: some sections of the same professor have different prerequisites
+   */
+  prereqDepth: number
 ];
 
 /**

@@ -233,6 +233,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
         sectionsMap,
         // Start off with no description
         null,
+        0,
       ];
     }
 
