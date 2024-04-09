@@ -1,6 +1,7 @@
 import _ from "lodash";
 import hash from "object-hash";
 import { Course, Section, TermData } from "../types";
+// import fs from "fs";
 
 export default function findUniquePrereqs(data: TermData): {
   allUniqueCourses: string[];
@@ -69,7 +70,11 @@ export default function findUniquePrereqs(data: TermData): {
     Object.keys(sections).forEach((sectionId) => {
       const section = sections[sectionId];
 
-      const profs = section[1][0][4];
+      const profs = section?.[1]?.[0]?.[4];
+      if (!profs) {
+        return;
+      }
+
       let prof;
       if (profs.length > 1) {
         const primaryProf = profs.filter((profTemp) => {
