@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from Parse import Parser
+from Parse import ParserV1, ParserV2
 import json
 from typing import Tuple
 import pandas as pd
@@ -18,12 +18,17 @@ class Section:
         if len(data[1]) == 0: raise LookupError("No Section Information")
         info = data[1][0]
         periodIdx, days = info[0], info[1]
+        credits, scheduleTypeIdx = data[2], data[3]
+
         # Find the period by using the provided periodIdx
         # into the periods cache
         period = self.cache['periods'][periodIdx]
+        scheduleType = self.cache['scheduleTypes'][scheduleTypeIdx]
 
         self.period: str = period
         self.days: str = days
+        self.credits = int(credits)
+        self.scheduleType = scheduleType
         self.obj = data
 
     def set(self, idx, val):
@@ -38,8 +43,10 @@ class Revise:
     def iterFiles(self):
         # Attempt to get the finals information for each term
         for file in Path("./data/").resolve().absolute().iterdir():
-            parser = Parser()
+
             if not re.match(r"\d+\.json", file.name): continue
+            year = int(file.stem[:4])
+            parser = ParserV1() if year < 2024 else ParserV2()
             self.file = file
             parser.parseFile(file.stem)
             parser.parseCommon()
@@ -69,18 +76,24 @@ class Revise:
             row=self.schedule.loc[days, period]
             return row
 
-        lab = re.compile(r"\d")
+        vip = re.compile(r"VIP\s\d+")
         Section.cache = data['caches']
         for course, courseData in data['courses'].items():
+            # Skip VIP courses
+            if vip.search(course):
+                continue
             for sectionTitle, sectionData in courseData[1].items():
-                # Skip lab sections (sections with numbers)
-                if lab.search(sectionTitle):
-                    continue
                 try:
                     section = Section(sectionData)
                 except:
                     pass
                 else:
+                    # According to the Registrar's, only lecture courses of at least 2 credit hours,
+                    # have a finals in the Final Exam Matrix.
+                    # https://registrar.gatech.edu/registration/exams
+                    if section.scheduleType != "Lecture*" or section.credits < 2:
+                        continue
+
                     # Check if the course has a common finals time
                     if course in self.common.index:
                         row = self.common.loc[course]

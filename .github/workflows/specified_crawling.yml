@@ -1,15 +1,17 @@
-name: Crawling
+name: Specified Crawling
 on:
-  push:
-    branches:
-      - main
-  schedule:
-    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      term:
+        description: 'Enter terms to scrape, separated by commas'
+        type: string
+        required: true
 concurrency:
   group: crawling
 
 jobs:
   crawling:
+    concurrency: ci-${{ github.ref }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -40,8 +42,9 @@ jobs:
         run: yarn start
         env:
           LOG_FORMAT: json
-          NUM_TERMS: 2
-          ALWAYS_SCRAPE_CURRENT_TERM: 1
+          NUM_TERMS: 1
+          SPECIFIED_TERM: ${{ inputs.term }}
+          ALWAYS_SCRAPE_CURRENT_TERM: 0
           DETAILS_CONCURRENCY: 256
           DATA_FOLDER: ./data
           NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/intermediate.pem
