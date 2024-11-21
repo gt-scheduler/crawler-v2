@@ -27,6 +27,7 @@ import {
   PrerequisiteOperator,
   Prerequisites,
   PrerequisiteSet,
+  SectionId,
 } from "../../types";
 
 /**
@@ -172,7 +173,7 @@ const Headers = {
  * NOTE: When a course name is missing from fullCourseNames map above,
  * the course is removed from the prerequisite list and a warning is logged.
  */
-function prereqHTMLToString(html: string, courseId: string) {
+function prereqHTMLToString(html: string, sectionId: SectionId) {
   const $ = load(html);
   const prereqTable = $(".basePreqTable").find("tr");
   const prereqs = Array<string>();
@@ -197,7 +198,7 @@ function prereqHTMLToString(html: string, courseId: string) {
           warn(
             `Course has a prereq for ${value} whose abbreviation does not exist. Prereq skipped.`,
             {
-              courseId,
+              sectionId,
               subject: value,
             }
           );
@@ -231,17 +232,19 @@ function prereqHTMLToString(html: string, courseId: string) {
 /**
  * Parses the HTML of a single course to get its prerequisites
  * @param html - Source HTML for the page
- * @param courseId - The joined course id (SUBJECT NUMBER); i.e. `"CS 2340"`
+ * @param sectionId - Object containing all information about section (subject, number, section letter, CRN)
  */
 export function parseCoursePrereqs(
   html: string,
-  courseId: string
+  sectionId: SectionId
 ): Prerequisites {
   // Converts prereqs in HTML table form to Banner 8 (old Oscar system that crawler-v1 uses)'s string format
-  const prereqString = prereqHTMLToString(html, courseId);
+  const prereqString = prereqHTMLToString(html, sectionId);
 
   // Create the lexer and parser using the ANTLR 4 grammar defined in ./grammar
   // (using antlr4ts: https://github.com/tunnelvisionlabs/antlr4ts)
+  const courseId = `${sectionId.subject} ${sectionId.number}`;
+
   const charStream = CharStreams.fromString(prereqString, courseId);
   const lexer = new PrerequisitesLexer(charStream);
   lexer.removeErrorListeners();
