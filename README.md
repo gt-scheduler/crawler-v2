@@ -49,6 +49,11 @@ Then, to run the crawler, run:
 yarn start
 ```
 
+If you are using Windows use 
+```
+yarn start:windows
+```
+
 After the crawler runs, a series of JSON files should have been created in a new `data` directory in the project root.
 
 #### Utilizing structured logging
