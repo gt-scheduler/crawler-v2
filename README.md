@@ -26,7 +26,7 @@ It operates as a series of _steps_ that are processed after one another (see [`s
 
 In order to process the prerequisites data for each course (which comes in the form of a string like "Undergraduate Semester level CS 2340 Minimum Grade of C and Undergraduate Semester level LMC 3432 Minimum Grade of C" that can become much more complex), the crawler also utilizes an [ANTLR](https://www.antlr.org/) grammar and generated parser in order to convert the prerequisites data retrieved from Oscar into a normalized tree structure. The grammar itself and the generated parser/lexer code can be found in the [`src/steps/prereqs/grammar`](/src/steps/prereqs/grammar) folder.
 
-The crawler is run every 30 minutes using a [GitHub Action workflow](/.github/workflows/crawling.yml), which then publishes the resultant JSON to the `gh-pages` where it can be downloaded by the frontend app: https://gt-scheduler.github.io/crawler/202008.json.
+The crawler is run every 30 minutes using a [GitHub Action workflow](/.github/workflows/crawling.yml), which then publishes the resultant JSON to the `gh-pages` where it can be downloaded by the frontend app: https://gt-scheduler.github.io/crawler-v2/202308.json.
 
 ## 🚀 Running Locally
 
