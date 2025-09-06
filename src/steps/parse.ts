@@ -80,6 +80,7 @@ const courseLocations = new Map([
   ["Savant", new Location(33.772075, -84.395277)],
   ["ISyE Main", new Location(33.775178, -84.401879)],
   ["Fourth Street Houses", new Location(33.775381, -84.391451)],
+  ["Rich-Computer Center", new Location(33.77535159008218, -84.39513500282604)],
 ]);
 
 const ignoredLocations = [
