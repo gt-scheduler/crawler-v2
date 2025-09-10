@@ -57,7 +57,7 @@ class Parser:
             if "Common Exams" in chunk.columns: df=chunk.copy()
         if df is None: return None
 
-        if self.year >= 2024:
+        if self.year == 2024:
           df.columns = ['Course', 'Date']
           df.drop(inplace=True, index=0)
           for index, row in df.iterrows(): 
@@ -239,7 +239,7 @@ class ParserV1(Parser):
         for idx, column in enumerate(block.columns):
             if titleSearch.match(column):
                 if idx == len(block.columns)-1: idxs.append([idx-1, idx])
-                elif "Exam Date/Time" in block.iloc[0, idx+1]:
+                elif isinstance(block.iloc[0, idx+1], str) and "Exam Date/Time" in block.iloc[0, idx+1]:
                     # Check if tabula created an extra column
                     idxs.append([idx-1, idx+1])
                 else: idxs.append([idx-1, idx])

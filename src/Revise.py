@@ -41,20 +41,44 @@ class Revise:
         self.iterFiles()
 
     def iterFiles(self):
+        failed = set()
+
         # Attempt to get the finals information for each term
         for file in Path("./data/").resolve().absolute().iterdir():
-
+            success = False
             if not re.match(r"\d+\.json", file.name): continue
             year = int(file.stem[:4])
-            parser = ParserV1() if year < 2024 else ParserV2()
-            self.file = file
-            parser.parseFile(file.stem)
-            parser.parseCommon()
-            parser.export("{}_Finals".format(file.stem))
-            self.schedule = parser.schedule
-            self.common = parser.common
-            self.process()
+
+            try:
+                # Try using ParserV1
+                parser = ParserV1()
+                parser.parseFile(file.stem)
+                parser.parseCommon()
+                success = True
+            except Exception as e1:
+                print(f"ParserV1 failed for {file.stem}: {e1}")
+                try:
+                    # Fallback to ParserV2
+                    parser = ParserV2()
+                    parser.parseFile(file.stem)
+                    parser.parseCommon()
+                    success = True
+                except Exception as e2:
+                    print(f"ParserV2 also failed for {file.stem}: {e2}")
+
+            # Export the parsed data
+            if success:
+                parser.export(f"{file.stem}_Finals")
+                self.schedule = parser.schedule
+                self.common = parser.common
+                self.file = file
+                self.process()
+            else:
+                failed.add(file.stem)
+        
         print("Finished all files")
+        if failed:
+            print(f"Failed to parse finals for: {', '.join(failed)}")
 
     def process(self):
         """
