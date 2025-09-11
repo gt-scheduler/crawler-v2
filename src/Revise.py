@@ -42,47 +42,33 @@ class Revise:
 
     def iterFiles(self):
         failed = set()
+        parsers = [ParserV1, ParserV2, ParserV3]
 
         # Attempt to get the finals information for each term
         for file in Path("./data/").resolve().absolute().iterdir():
-            success = False
             if not re.match(r"\d+\.json", file.name): continue
             year = int(file.stem[:4])
 
-            try:
-                # Try using ParserV1
-                parser = ParserV1()
-                parser.parseFile(file.stem)
-                parser.parseCommon()
-                success = True
-            except Exception as e1:
-                print(f"ParserV1 failed for {file.stem}: {e1}")
+            success = False
+            for Parser in parsers:
                 try:
-                    # Fallback to ParserV2
-                    parser = ParserV2()
+                    parser = Parser()
                     parser.parseFile(file.stem)
                     parser.parseCommon()
                     success = True
-                except Exception as e2:
-                    print(f"ParserV2 also failed for {file.stem}: {e2}")
-                    try:
-                        # Fallback to ParserV3
-                        parser = ParserV3()
-                        parser.parseFile(file.stem)
-                        parser.parseCommon()
-                        success = True
-                    except Exception as e3:
-                        print(f"ParserV3 also failed for {file.stem}: {e3}")
+                    break
+                except Exception as e:
+                    print(f"{Parser.__name__} failed for {file.stem}: {e}")
 
-            # Export the parsed data
-            if success:
+            if not success:
+                print(f"All parsers failed for {file.stem}")
+                failed.add(file.stem)
+            else:
                 parser.export(f"{file.stem}_Finals")
                 self.schedule = parser.schedule
                 self.common = parser.common
                 self.file = file
                 self.process()
-            else:
-                failed.add(file.stem)
         
         print("Finished all files")
         if failed:
