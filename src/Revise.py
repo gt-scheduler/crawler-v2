@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from Parse import ParserV1, ParserV2
+from Parse import ParserV1, ParserV2, ParserV3
 import json
 from typing import Tuple
 import pandas as pd
@@ -65,6 +65,14 @@ class Revise:
                     success = True
                 except Exception as e2:
                     print(f"ParserV2 also failed for {file.stem}: {e2}")
+                    try:
+                        # Fallback to ParserV3
+                        parser = ParserV3()
+                        parser.parseFile(file.stem)
+                        parser.parseCommon()
+                        success = True
+                    except Exception as e3:
+                        print(f"ParserV3 also failed for {file.stem}: {e3}")
 
             # Export the parsed data
             if success:
