@@ -12,7 +12,6 @@ import PyPDF2
 from PyPDF2 import PdfReader
 import requests
 import os 
-import fitz
 
 # More documentation available: https://github.com/gt-scheduler/crawler/wiki/Finals-Scraping#revise
 
