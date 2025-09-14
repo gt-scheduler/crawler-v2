@@ -9,11 +9,19 @@ import json
 from pathlib import Path
 from typing import *
 import PyPDF2
-from PyPDF2 import PdfReader
 import requests
 import os 
 
 # More documentation available: https://github.com/gt-scheduler/crawler/wiki/Finals-Scraping#revise
+
+MATRIX_FILE_PATH = Path("./src/matrix.json").resolve().absolute()
+
+# RegEx for date (i.e. "Monday, Dec 12")
+dateSearch = re.compile(r"\w+,\s\w+\s\d+")
+# RegEx for time range (i.e. "8:00 AM - 10:50 AM")
+timeSearch = re.compile(r"\d+:\d\d\s[PA]M\s*(‐|-)\s*\d+:\d\d [PA]M")
+# RegEx for title (i.e. "8:00 AM - 10:50 AM Exams")
+titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
 
 class Parser:
 # TODO fix uneven boxes case. don't just ignore repeats, use the longer one. probably just better to use multi index
@@ -23,12 +31,13 @@ class Parser:
         self.read = None
         self.common = pd.DataFrame()
 
-    # Date format
-    def setDateFormat(self, string: str):
-        self.dateFormat = string
-
-    # Crops PDF using PyPDF2
     def cropPdf(self, input_path, output_path, left=16.4 * 72, bottom=0 * 72, right=1 * 72, top=11 * 72):
+        """
+        Crop a PDF file using PyPDF2 by adjusting the visible bounding box.
+
+        Some finals PDFs contain headers, footers, or extraneous whitespace that confuse
+        downstream parsing logic. Cropping reduces errors and noise in the extracted data.
+        """
         with open(input_path, 'rb') as file:
           reader = PyPDF2.PdfReader(file)
           writer = PyPDF2.PdfWriter()
@@ -70,24 +79,53 @@ class Parser:
         return df
 
     def parseBlock(self, block, version):
+        """
+        A block is a chunk of PDF-extracted text representing a single exam time slot, 
+        typically starting with "<start time> - <end time> Exams" followed by rows of class schedules 
+        with days, class times, and optional course dates (may include line breaks or NaNs).
+
+        e.g.
+
+           2:40 PM - 5:30 PM Exams                            Unnamed: 0
+        0                     Days                      Class Start Time
+        1          F2:00 PM3:55 PM     Monday, Apr 28\r2:40 PM - 5:30 PM
+        2          F2:00 PM4:45 PM                                   NaN
+        3         F8:00 AM10:45 AM    Thursday, May 1\r2:40 PM - 5:30 PM
+        4         F8:25 AM10:20 AM                                   NaN
+        5       MTWR2:00 PM2:50 PM     Friday, Apr 25\r2:40 PM - 5:30 PM
+        6      MWF\r2:00 PM2:50 PM                                   NaN
+        7         MW2:00 PM2:50 PM                                   NaN
+        ...
+        """
 
         def date (n: re.Match):
             nonlocal sectionDate
-            try:
-                date = datetime.strptime(n.group(), "%A, %b %d")
-            except ValueError:
-                # Full month name was used
-                date = datetime.strptime(n.group(), "%A, %B %d")
-            date = date.replace(year=self.year)
-            sectionDate = date.strftime(self.dateFormat)
-            return ""
+            raw_date = n.group()
+            formats = [
+                "%m/%d",        # numeric month/day, e.g., "12/09"
+                "%m-%d",        # numeric with dash, e.g., "12-09"
+                "%A, %b %d",    # abbreviated month name, e.g., "Tuesday, Dec 9"
+                "%A, %B %d"     # full month name, e.g., "Tuesday, December 9"
+            ]
+
+            for fmt in formats:
+                try:
+                    parsed_date = datetime.strptime(raw_date, fmt)
+                    parsed_date = parsed_date.replace(year=self.year)
+                    sectionDate = parsed_date.strftime(self.dateFormat)
+                    return
+                except ValueError:
+                    continue
+
+            # no formats matched
+            print(f"Warning: Could not parse date '{raw_date}'")
+            sectionDate = None
             
         def time (n: re.Match):
             nonlocal sectionTime
-            if sectionTime: return ""
-            group = n.group().lower()
-            sectionTime = self.convertTimeGroup(group)
-            return ""
+            if not sectionTime:
+                group = n.group().lower()
+                sectionTime = self.convertTimeGroup(group)
         
         if version == 1:
             block.columns = ["Days", "Time"]
@@ -95,10 +133,11 @@ class Parser:
             # Requires regex to split them apart
             sectionDate = ""
             sectionTime = ""
-            dateSearch = re.compile(r"\w+,\s\w+\s\d+")
-            timeSearch = re.compile(r"\d+:\d\d\s[PA]M\s*(‐|-)\s*\d+:\d\d [PA]M")
             hyphen = re.compile(r"(?<=[ap]m)\s(?=\d)")
 
+            # Each row represents a class meeting with 'Days' (e.g., "MW", "TRF") and 'Time' (start and end times, 
+            # sometimes including the exam date or extra time ranges), e.g., 
+            # Days="MW", Time="6:30 PM 7:20 PM" or Days="T", Time="5:00 PM 6:55 PM Tuesday, Dec 9".
             for index, row in block.iterrows():
                 # Add the finals date/time as a separate column
                 try:
@@ -106,12 +145,9 @@ class Parser:
                     row[1] = timeSearch.sub(time, row[1])
                     row[1] = hyphen.sub(" - ", row[1].lower())
                     row[1] = self.convertTimeGroup(row[1])
-                except:
-                    print(block)
-                    print()
-                    print(row)
-                    print(row[1])
-                    raise Exception
+                except Exception as e:
+                    print(f"Error parsing row: {e}")
+                    pass
                 block.loc[index, 'finalDate'] = sectionDate
                 block.loc[index, 'finalTime'] = sectionTime
 
@@ -119,8 +155,6 @@ class Parser:
             block['finalTime'].iloc[0] = block['finalTime'].iloc[1]
             return block
         elif version == 2:
-            titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
-
             # check if the title for the block was parsed as a column name or a row
             for c in block.columns:
                 if titleSearch.match(c):
@@ -136,10 +170,9 @@ class Parser:
 
             sectionDate = ""
             sectionTime = ""
-            dateSearch = re.compile(r"\w+,\s\w+\s\d+")
-            timeSearch = re.compile(r"\d+:\d\d\s[PA]M\s*(‐|-)\s*\d+:\d\d [PA]M")
 
             def split_schedule(schedule):
+                # Matches schedule lines like "TR8:00 AM9:15 AM" to capture days, start time, and end time
                 pattern = r'([A-Za-z]+)\s*\r?\s*(\d{1,2}:\d{2} [AP]M)\s*(\d{1,2}:\d{2} [AP]M)'
                 matches = re.match(pattern, schedule)
                 if matches:
@@ -189,6 +222,7 @@ class Parser:
             tempdf = df.copy()
             tempdf.columns = ['Course', 'Date']
             for index, row in tempdf.iterrows(): 
+                # Matches a course name or 'None' followed by a date like "Thurs, Apr 25", capturing (course(s), date).
                 match = re.match(r'(None|.+?)([A-z]{3,5}, \w{3} \d{1,2})', row[0])
 
                 if match:
@@ -246,8 +280,15 @@ class Parser:
         else:
             print("Schedule has not been parsed")
     
-# Parser class for PDFs from 2023 and earlier
 class ParserV1(Parser):
+    """
+    Parser class for PDFs from 202308, 202505, and 202508
+
+    ParserV1 handles matrix PDFs where:
+    - Tabula splits pages into uneven chunks
+    - Columns may be merged incorrectly
+    - Schedules have Days/Time columns combined with Exam Date/Time
+    """
     def __init__(self):
         super().__init__()
 
@@ -261,7 +302,7 @@ class ParserV1(Parser):
         print(f"Parsing file: {file}")
 
         # TODO: CHANGE PATH BEFORE COMMITTING
-        with open(Path("./src/matrix.json").resolve().absolute()) as f:
+        with open(MATRIX_FILE_PATH) as f:
             locations = json.load(f)
         if file in locations:
             url = locations[file] # address for the PDF
@@ -308,8 +349,7 @@ class ParserV1(Parser):
         Return a list of columns to parse in the format
         [start_column, end_column, end_row]
         """
-
-        titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
+        
         idxs = []
         for idx, column in enumerate(block.columns):
             if titleSearch.match(column):
@@ -323,8 +363,14 @@ class ParserV1(Parser):
         return idxs
 
 
-# Parser class for PDFs from 2024 and later
 class ParserV2(Parser):
+    """
+    Parser class for PDFs from 202402
+
+    ParserV2 handles PDFs where:
+    - Coordinates are cropped to exclude header and footer for cleaner extraction
+    - Tabula may still merge columns, but simpler splitting logic is used
+    """
     def __init__(self):
         super().__init__()
 
@@ -336,7 +382,7 @@ class ParserV2(Parser):
         self.year = int(file[0:4])
         print(f"Parsing file: {file}")
 
-        with open(Path("./src/matrix.json").resolve().absolute()) as f:
+        with open(MATRIX_FILE_PATH) as f:
             locations = json.load(f)
         if file in locations:
             url = locations[file] # address for the PDF
@@ -377,6 +423,12 @@ class ParserV2(Parser):
         self.schedule = schedule
         
 class ParserV3(Parser):
+    """
+    Parser class for PDFs from 202502
+
+    Similar to ParserV2 but instead crops into left/right halves for easier Tabula extraction
+    Can be used if Tabula has trouble with the full page (i.e. combines two tables from left and right side into one)
+    """
     def __init__(self):
         super().__init__()
 
@@ -390,7 +442,7 @@ class ParserV3(Parser):
         print(f"Parsing file: {file}")
 
         # Load the matrix.json file to get the URL for the PDF
-        with open(Path("./src/matrix.json").resolve().absolute()) as f:
+        with open(MATRIX_FILE_PATH) as f:
             locations = json.load(f)
         if file in locations:
             url = locations[file]  # address for the PDF
@@ -411,7 +463,7 @@ class ParserV3(Parser):
         with open(pdf_path, 'wb') as f:
             f.write(response.content)
 
-        reader = PdfReader(pdf_path)
+        reader = PyPDF2.PdfReader(pdf_path)
         page = reader.pages[0]
         page_width = float(page.mediabox.width)
         page_height = float(page.mediabox.height)
