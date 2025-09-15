@@ -49,7 +49,8 @@ Then, to run the crawler, run:
 yarn start
 ```
 
-If you are using Windows use 
+If you are using Windows use
+
 ```
 yarn start:windows
 ```

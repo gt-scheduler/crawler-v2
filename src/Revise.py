@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from Parse import ParserV1, ParserV2
+from Parse import ParserV1, ParserV2, ParserV3
 import json
 from typing import Tuple
 import pandas as pd
@@ -41,20 +41,38 @@ class Revise:
         self.iterFiles()
 
     def iterFiles(self):
+        failed = set()
+        parsers = [ParserV1, ParserV2, ParserV3]
+
         # Attempt to get the finals information for each term
         for file in Path("./data/").resolve().absolute().iterdir():
-
             if not re.match(r"\d+\.json", file.name): continue
             year = int(file.stem[:4])
-            parser = ParserV1() if year < 2024 else ParserV2()
-            self.file = file
-            parser.parseFile(file.stem)
-            parser.parseCommon()
-            parser.export("{}_Finals".format(file.stem))
-            self.schedule = parser.schedule
-            self.common = parser.common
-            self.process()
+
+            success = False
+            for Parser in parsers:
+                try:
+                    parser = Parser()
+                    parser.parseFile(file.stem)
+                    parser.parseCommon()
+                    success = True
+                    break
+                except Exception as e:
+                    print(f"{Parser.__name__} failed for {file.stem}: {e}")
+
+            if not success:
+                print(f"All parsers failed for {file.stem}")
+                failed.add(file.stem)
+            else:
+                parser.export(f"{file.stem}_Finals")
+                self.schedule = parser.schedule
+                self.common = parser.common
+                self.file = file
+                self.process()
+        
         print("Finished all files")
+        if failed:
+            print(f"Failed to parse finals for: {', '.join(failed)}")
 
     def process(self):
         """
