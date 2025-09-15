@@ -11,7 +11,8 @@
     "lint": "eslint \"src/**/*.ts\" --ignore-pattern \"src/steps/prereqs/grammar/**/*\"",
     "lint:fix": "eslint \"src/**/*.ts\" --ignore-pattern \"src/steps/prereqs/grammar/**/*\" --fix",
     "format": "prettier \"src/**/*.{ts,md,json}\" \"*.{ts,md,json}\" --write",
-    "format:check": "prettier \"src/**/*.{ts,md,json}\" \"*.{ts,md,json}\" --check"
+    "format:check": "prettier \"src/**/*.{ts,md,json}\" \"*.{ts,md,json}\" --check",
+    "debug": "ts-node src/debug.ts"
   },
   "dependencies": {
     "antlr4ts": "^0.5.0-alpha.3",
