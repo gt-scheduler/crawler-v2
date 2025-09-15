@@ -24,7 +24,6 @@ timeSearch = re.compile(r"\d+:\d\d\s[PA]M\s*(‐|-)\s*\d+:\d\d [PA]M")
 titleSearch = re.compile(r"\d+:\d\d [AP]M\s+(‐|-)\s+\d+:\d\d\s[AP]M\sExams")
 
 class Parser:
-# TODO fix uneven boxes case. don't just ignore repeats, use the longer one. probably just better to use multi index
     def __init__(self):
         self.dateFormat = "%b %d, %Y"
         self.schedule = pd.DataFrame()
