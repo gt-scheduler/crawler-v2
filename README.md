@@ -57,6 +57,16 @@ yarn start:windows
 
 After the crawler runs, a series of JSON files should have been created in a new `data` directory in the project root.
 
+### Debugging
+
+The crawler output can sometimes be difficult to interpret, since much of the information is represented as tuples or indexed values. For this purpose, we have provided a debug script that can be run with
+
+```
+yarn debug
+```
+
+This will generate output with additional debug fields and create JSON files in the `data/debug` directory.
+
 #### Utilizing structured logging
 
 By default, the crawler outputs standard log lines to the terminal in development. However, it also supports outputting structured JSON log events that can be more easily parsed and analyzed when debugging. This is turned on by default when the crawler is running in a GitHub Action (where the `LOG_FORMAT` environment variable is set to `json`), but it can also be enabled for development.
