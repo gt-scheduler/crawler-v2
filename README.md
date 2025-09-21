@@ -57,6 +57,7 @@ yarn start:windows
 
 After the crawler runs, a series of JSON files should have been created in a new `data` directory in the project root.
 
+
 #### Running with the website
 
 If you want to run the website with a local instance of the crawler, use
@@ -66,6 +67,17 @@ yarn serve
 ```
 
 Then on the website side, change the `CUSTOM_CRAWLER_URL` constant [here](https://github.com/gt-scheduler/website/blob/6778803904dda8a3defa7c2ba04bc104c0246dfc/src/constants.ts#L83) to point to the server URL. Make sure you are using the website in a new incognito window to prevent caching behavior.
+
+### Debugging
+
+The crawler output can sometimes be difficult to interpret, since much of the information is represented as tuples or indexed values. For this purpose, we have provided a debug script that can be run with
+
+```
+yarn debug
+```
+
+This will generate output with additional debug fields and create JSON files in the `data/debug` directory.
+
 
 #### Utilizing structured logging
 
