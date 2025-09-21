@@ -57,6 +57,16 @@ yarn start:windows
 
 After the crawler runs, a series of JSON files should have been created in a new `data` directory in the project root.
 
+#### Running with the website
+
+If you want to run the website with a local instance of the crawler, use
+
+```
+yarn serve
+```
+
+Then on the website side, change the `CUSTOM_CRAWLER_URL` constant [here](https://github.com/gt-scheduler/website/blob/6778803904dda8a3defa7c2ba04bc104c0246dfc/src/constants.ts#L83) to point to the server URL.
+
 #### Utilizing structured logging
 
 By default, the crawler outputs standard log lines to the terminal in development. However, it also supports outputting structured JSON log events that can be more easily parsed and analyzed when debugging. This is turned on by default when the crawler is running in a GitHub Action (where the `LOG_FORMAT` environment variable is set to `json`), but it can also be enabled for development.
