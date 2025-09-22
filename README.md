@@ -65,7 +65,7 @@ If you want to run the website with a local instance of the crawler, use
 yarn serve
 ```
 
-Then on the website side, change the `CUSTOM_CRAWLER_URL` constant [here](https://github.com/gt-scheduler/website/blob/6778803904dda8a3defa7c2ba04bc104c0246dfc/src/constants.ts#L83) to point to the server URL. Make sure you are using the website in a new incognito window to prevent caching behavior.
+Then on the website side, add a `REACT_APP_LOCAL_CRAWLER_URL` env variable to point to the server URL. If you run into delayed updates due to the caching behavior, try using an incognito window.
 
 #### Utilizing structured logging
 
