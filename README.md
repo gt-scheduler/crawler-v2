@@ -57,6 +57,7 @@ yarn start:windows
 
 After the crawler runs, a series of JSON files should have been created in a new `data` directory in the project root.
 
+
 #### Running with the website
 
 If you want to run the website with a local instance of the crawler, use
@@ -66,6 +67,17 @@ yarn serve
 ```
 
 Then on the website side, add a `REACT_APP_LOCAL_CRAWLER_URL` env variable to point to the server URL. If you run into delayed updates due to the caching behavior, try using an incognito window.
+
+### Debugging
+
+The crawler output can sometimes be difficult to interpret, since much of the information is represented as tuples or indexed values. For this purpose, we have provided a debug script that can be run with
+
+```
+yarn debug
+```
+
+This will generate output with additional debug fields and create JSON files in the `data/debug` directory.
+
 
 #### Utilizing structured logging
 
