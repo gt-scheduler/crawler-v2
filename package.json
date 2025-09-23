@@ -12,7 +12,8 @@
     "lint:fix": "eslint \"src/**/*.ts\" --ignore-pattern \"src/steps/prereqs/grammar/**/*\" --fix",
     "format": "prettier \"src/**/*.{ts,md,json}\" \"*.{ts,md,json}\" --write",
     "format:check": "prettier \"src/**/*.{ts,md,json}\" \"*.{ts,md,json}\" --check",
-    "debug": "ts-node src/debug.ts"
+    "debug": "ts-node src/debug.ts",
+    "serve": "cd src && python serve.py"
   },
   "dependencies": {
     "antlr4ts": "^0.5.0-alpha.3",
