@@ -121,7 +121,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
 
   sections.forEach((section) => {
     const {
-      courseTitle,
+      courseTitle, // Human-readable course title (e.g. "Principles of Accounting I")
       courseReferenceNumber,
       sequenceNumber,
       // creditHours: credits,
@@ -141,6 +141,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
         )?.meetingTime.creditHourSession ?? 0;
     }
 
+    // courseName = subject code + course number (e.g. "CS 8803")
     const courseName = `${section.subject} ${subjectCourse.replace(
       section.subject,
       ""
@@ -222,7 +223,9 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     });
 
     if (!(courseName in courses)) {
-      const title = courseTitle;
+      const title = courseName.includes("8803")
+        ? "Special Topics"
+        : courseTitle;
       const sectionsMap: Record<string, Section> = {};
       courses[courseName] = [
         title,
@@ -242,6 +245,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       campusIndex,
       attributeIndices,
       -1,
+      courseTitle,
     ];
   });
 
