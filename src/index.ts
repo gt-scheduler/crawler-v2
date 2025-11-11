@@ -12,8 +12,11 @@ import {
   writeIndex,
   parseCoursePrereqs,
   downloadCoursePrereqDetails,
+  downloadSectionRestrictions,
+  parseSectionRestrictions,
+  attachSectionRestrictions,
 } from "./steps";
-import { Prerequisites } from "./types";
+import { Prerequisites, SectionRestrictions } from "./types";
 import {
   setLogFormat,
   isLogFormat,
@@ -264,6 +267,47 @@ async function crawlTerm(
 
   await span(`attaching course descriptions`, spanFields, () =>
     attachDescriptions(termData, allDescriptions)
+  );
+
+  // Crawl section restrictions
+  const allRestrictions: Record<string, SectionRestrictions> = {};
+  await span(
+    `downloading & parsing section restrictions`,
+    { ...spanFields, concurrency: DETAILS_CONCURRENCY },
+    async () => {
+      // Collect all CRNs from all sections
+      const allCrns: string[] = [];
+      for (const courseData of Object.values(termData.courses)) {
+        const sectionsMap = courseData[1];
+        for (const sectionData of Object.values(sectionsMap)) {
+          allCrns.push(sectionData[0]); // CRN is first element
+        }
+      }
+
+      await asyncPool(DETAILS_CONCURRENCY, allCrns, async (crn) => {
+        await span(
+          `crawling section restrictions`,
+          { ...spanFields, crn },
+          async (setCompletionFields) => {
+            const [html, downloadSuccess] = await downloadSectionRestrictions(
+              term,
+              crn
+            );
+            const parsed = parseSectionRestrictions(html, crn, downloadSuccess);
+            allRestrictions[crn] = parsed;
+            setCompletionFields({
+              htmlLength: html.length,
+              hasRestrictions: parsed.restrictions.length > 0,
+              status: parsed.status,
+            });
+          }
+        );
+      });
+    }
+  );
+
+  await span(`attaching section restrictions`, spanFields, () =>
+    attachSectionRestrictions(termData, allRestrictions)
   );
 
   await span(`writing scraped data to disk`, spanFields, () =>

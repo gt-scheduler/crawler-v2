@@ -242,6 +242,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       campusIndex,
       attributeIndices,
       -1,
+      { restrictions: [], status: "success" }, // restrictions - initialized with success status, will be populated later
     ];
   });
 

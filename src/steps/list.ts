@@ -1,6 +1,5 @@
 import axios from "axios";
 import { getIntConfig } from "../utils";
-import { Term } from "../types";
 
 const NUM_TERMS = getIntConfig("NUM_TERMS") ?? 2;
 

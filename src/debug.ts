@@ -2,7 +2,13 @@ import path from "path";
 import fs from "fs/promises";
 import { existsSync, mkdirSync } from "fs";
 import { dataPath } from "./steps/write";
-import { Caches, TermData, Location, Prerequisites } from "./types";
+import {
+  Caches,
+  TermData,
+  Location,
+  Prerequisites,
+  SectionRestrictions,
+} from "./types";
 
 type MeetingDebug = {
   periodIndex: number;
@@ -32,6 +38,7 @@ type SectionDebug = {
   attributes: string[];
   gradeBaseIndex: number;
   gradeBase: string | null;
+  restrictionData: SectionRestrictions;
 };
 
 type CourseDebug = {
@@ -82,6 +89,7 @@ function toDebugTerm(term: TermData): TermDebug {
         campusIndex,
         attributeIndices,
         gradeBaseIndex,
+        restrictionData,
       ] = sectionTuple;
 
       const scheduleType =
@@ -147,6 +155,7 @@ function toDebugTerm(term: TermData): TermDebug {
         attributes,
         gradeBaseIndex,
         gradeBase,
+        restrictionData,
       };
     }
 
