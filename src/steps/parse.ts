@@ -223,12 +223,9 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     });
 
     if (!(courseName in courses)) {
-      const title = courseName.includes("8803")
-        ? "Special Topics"
-        : courseTitle;
       const sectionsMap: Record<string, Section> = {};
       courses[courseName] = [
-        title,
+        courseTitle,
         sectionsMap,
         // Start off with an empty prerequisites array
         [],
