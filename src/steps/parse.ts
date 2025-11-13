@@ -10,6 +10,8 @@ import {
 import { cache } from "../utils";
 import { warn } from "../log";
 
+const MULTIPLE_TOPICS_COURSE_TITLE = "Multiple Topics";
+
 /**
  * A map consisting of course locations and corresponding coordinates
  *
@@ -232,6 +234,14 @@ export function parse(sections: SectionResponse[], version: number): TermData {
         // Start off with no description
         null,
       ];
+    } else {
+      const existingTitle = courses[courseName][0];
+      if (
+        existingTitle !== courseTitle &&
+        existingTitle !== MULTIPLE_TOPICS_COURSE_TITLE
+      ) {
+        courses[courseName][0] = MULTIPLE_TOPICS_COURSE_TITLE;
+      }
     }
 
     courses[courseName][1][sequenceNumber] = [
