@@ -156,7 +156,8 @@ export type Section = [
   gradeBaseIndex: number,
   /**
    * the section-specific title of the course (e.g. "Animal Interaction"),
-   * used for 8803 Special Topics courses
+   * we need this when there are classes with multiple sections with different titles
+   * e.g. 8803, 4803 etc
    */
   sectionTitle: string
 ];
