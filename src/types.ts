@@ -22,6 +22,11 @@ export interface TermData {
    * Version number for the term data
    */
   version: number;
+  /**
+   * Contains all course IDs that require parsing, including pseudo-courses (sections)
+   * that contain prerequisites different from the other course sections
+   */
+  sectionIds: SectionId[];
 }
 
 /**
@@ -94,27 +99,16 @@ export type Course = [
    */
   sections: Record<string, Section>,
   /**
-     * a tree of prerequisite classes and the necessary grades in them
-     * (using boolean expressions in prefix order)
-     *
-     * @example
-     *
-     * ```json
-       [
-         "and",
-         [
-            "or",
-            {"id":"CS 3510", "grade":"C"},
-            {"id":"CS 3511", "grade":"C"}
-         ]
-       ]
-     * ```
-     */
-  prerequisites: Prerequisites,
-  /**
    * Description pulled from Oscar
    */
-  description: string | null
+  description: string | null,
+  /**
+   * level of prerequisite uniqueness
+   * 0: all course sections have the same prerequisites
+   * 1: all course sections grouped by professor have the same prerequisites
+   * 2: some sections of the same professor have different prerequisites
+   */
+  prereqDepth: number
 ];
 
 /**
@@ -153,7 +147,29 @@ export type Section = [
    * integer index into caches.gradeBases,
    * specifying the grading scheme of the class
    */
-  gradeBaseIndex: number
+  gradeBaseIndex: number,
+  /**
+   * string representing section-specific course name
+   */
+  fullName: string,
+  /**
+     * a tree of section-specific prerequisite classes and the necessary grades in them
+     * (using boolean expressions in prefix order)
+     *
+     * @example
+     *
+     * ```json
+       [
+         "and",
+         [
+            "or",
+            {"id":"CS 3510", "grade":"C"},
+            {"id":"CS 3511", "grade":"C"}
+         ]
+       ]
+     * ```
+     */
+  prerequisites: Prerequisites
 ];
 
 /**
@@ -368,3 +384,10 @@ export interface Term {
   term: string;
   finalized: boolean;
 }
+
+export type SectionId = {
+  subject: string;
+  number: string;
+  section: string;
+  crn: string;
+};

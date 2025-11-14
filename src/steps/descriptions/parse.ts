@@ -1,4 +1,5 @@
 import { warn } from "../../log";
+import { SectionId } from "../../types";
 import { regexExec } from "../../utils";
 
 const descriptionRegex = /<section.*>([\s\S]*?)<\/section>/;
@@ -6,11 +7,11 @@ const descriptionRegex = /<section.*>([\s\S]*?)<\/section>/;
 /**
  * Parses the HTML for a single course to get its description, if it has one
  * @param html - Source HTML from the course details page
- * @param courseId - The joined course id (SUBJECT NUMBER); i.e. `"CS 2340"`
+ * @param sectionId - Object containing all information about section (subject, number, section letter, CRN)
  */
 export function parseCourseDescription(
   html: string,
-  courseId: string
+  sectionId: SectionId
 ): string | null {
   try {
     // Get the first match of the description content regex
@@ -27,7 +28,7 @@ export function parseCourseDescription(
 
     return trimmed;
   } catch {
-    warn(`could not execute course description regex`, { courseId });
+    warn(`could not execute course description regex`, sectionId);
     return null;
   }
 }

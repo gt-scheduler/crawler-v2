@@ -18,7 +18,7 @@ export function attachDescriptions(
 
     if (courseId in termData.courses) {
       // eslint-disable-next-line no-param-reassign
-      termData.courses[courseId][3] = descriptions[courseId];
+      termData.courses[courseId][2] = descriptions[courseId];
     } else {
       warn(`received description for unknown course`, { courseId });
     }

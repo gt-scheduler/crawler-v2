@@ -2,24 +2,23 @@ import axios from "axios";
 import { backOff } from "exponential-backoff";
 import { concatParams } from "../utils";
 import { warn, error } from "../log";
+import { SectionId } from "../types";
 
 /**
  * Downloads the course detail information for a single course
  * @param term - The term string
- * @param courseId - The joined course id (SUBJECT NUMBER); i.e. `"CS 2340"`
+ * @param sectionId - Object containing all information about section (subject, number, section letter, CRN)
  */
 export async function downloadCourseDetails(
   term: string,
-  courseId: string
+  sectionId: SectionId
 ): Promise<string> {
-  // Attempt to split the course ID into its subject/number
-  const splitResult = splitCourseId(courseId);
-  if (splitResult === null) {
-    warn("could not split course ID; skipping detail scraping", { courseId });
+  if (!(sectionId.subject && sectionId.number)) {
+    warn("invalid section ID; skipping detail scraping", sectionId);
     return "";
   }
 
-  const [subject, number] = splitResult;
+  const { subject, number } = sectionId;
   const parameters = {
     term,
     subjectCode: subject,
@@ -46,7 +45,7 @@ export async function downloadCourseDetails(
         numOfAttempts: maxAttemptCount,
         retry: (err, attemptNumber) => {
           error(`an error occurred while fetching details`, err, {
-            courseId,
+            sectionId,
             url,
             attemptNumber,
             tryingAgain: attemptNumber < maxAttemptCount,
@@ -57,7 +56,7 @@ export async function downloadCourseDetails(
     );
     return response.data;
   } catch (err) {
-    error(`exhausted retries for fetching details`, err, { courseId });
+    error(`exhausted retries for fetching details`, err, sectionId);
     throw err;
   }
 }
@@ -65,26 +64,28 @@ export async function downloadCourseDetails(
 /**
  * Downloads the prerequisites for a single course
  * @param term - The term string
- * @param courseId - The joined course id (SUBJECT NUMBER); i.e. `"CS 2340"`
+ * @param sectionId - Object containing all information about section (subject, number, section letter, CRN)
  */
 export async function downloadCoursePrereqDetails(
   term: string,
-  courseId: string
+  sectionId: SectionId
 ): Promise<string> {
-  const splitResult = splitCourseId(courseId);
-  if (splitResult === null) {
-    warn("could not split course ID; skipping detail scraping", { courseId });
+  if (!(sectionId.subject && sectionId.number)) {
+    warn("invalid section ID; skipping detail scraping", sectionId);
     return "";
   }
 
-  const [subject, number] = splitResult;
+  const { subject, number, crn } = sectionId;
   const parameters = {
     term,
     subjectCode: subject,
     courseNumber: number,
+    courseReferenceNumber: crn,
   };
   const query = `?${concatParams(parameters)}`;
-  const url = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/courseSearchResults/getPrerequisites${query}`;
+
+  // Use API endpoint for getting prerequisite information from CRN
+  const url = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites${query}`;
 
   // Perform the request in a retry loop
   // (sometimes, we get rate limits/transport errors so this tries to mitigates them)
@@ -103,7 +104,7 @@ export async function downloadCoursePrereqDetails(
         numOfAttempts: maxAttemptCount,
         retry: (err, attemptNumber) => {
           error(`an error occurred while fetching details`, err, {
-            courseId,
+            sectionId,
             url,
             attemptNumber,
             tryingAgain: attemptNumber < maxAttemptCount,
@@ -114,7 +115,7 @@ export async function downloadCoursePrereqDetails(
     );
     return response.data;
   } catch (err) {
-    error(`exhausted retries for fetching prereqs`, err, { courseId });
+    error(`exhausted retries for fetching prereqs`, err, sectionId);
     throw err;
   }
 }
@@ -123,10 +124,12 @@ export async function downloadCoursePrereqDetails(
  * Attempts to split a course ID into its subject/number components
  * @param courseId - The joined course id (SUBJECT NUMBER); i.e. `"CS 2340"`
  */
-function splitCourseId(
+export function splitCourseId(
   courseId: string
 ): [subject: string, number: string] | null {
-  const splitResult = courseId.split(" ");
-  if (splitResult.length !== 2) return null;
+  const splitResult = courseId?.split(" ");
+  // 'ECON 4803 <123456>' is valid due to sections potentially having different titles or prerequisites
+  // Number within arrow brackets signifies CRN as an additional course identifier
+  if (!splitResult || splitResult.length !== 2) return null;
   return [splitResult[0], splitResult[1]];
 }

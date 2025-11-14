@@ -6,9 +6,11 @@ import {
   Section,
   Location,
   SectionResponse,
+  SectionId,
 } from "../types";
 import { cache } from "../utils";
 import { warn } from "../log";
+import { splitCourseId } from "./details";
 
 /**
  * A map consisting of course locations and corresponding coordinates
@@ -121,6 +123,8 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     // fullCourseNames: {},
   };
 
+  const sectionIds: SectionId[] = [];
+
   const updatedAt = new Date();
   const missingLocations = new Set<string>();
 
@@ -183,8 +187,10 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       }
 
       const instructors = section.faculty.map(
+        // Occassionally, the code errors while processing split() in the function below
+        // displayName is sometimes null, but appears correctly on later script executions
         (faculty) =>
-          faculty.displayName.split(", ").reverse().join(" ") +
+          faculty.displayName?.split(", ").reverse().join(" ") +
           (faculty.primaryIndicator ? " (P)" : "")
       );
       const periodIndex = cache(
@@ -227,15 +233,13 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     });
 
     if (!(courseName in courses)) {
-      const title = courseTitle;
       const sectionsMap: Record<string, Section> = {};
       courses[courseName] = [
-        title,
+        courseTitle,
         sectionsMap,
-        // Start off with an empty prerequisites array
-        [],
         // Start off with no description
         null,
+        0,
       ];
     }
 
@@ -247,7 +251,22 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       campusIndex,
       attributeIndices,
       -1,
+      courseTitle,
+      // Start off with empty section prerequisities
+      [],
     ];
+
+    // Store section details into object to facilitate scraping all sections for prerequisites
+    const tempSplitId = splitCourseId(courseName);
+    if (tempSplitId) {
+      const [courseSubject, courseNumber] = tempSplitId;
+      sectionIds.push({
+        subject: courseSubject,
+        number: courseNumber,
+        section: sequenceNumber,
+        crn: courseReferenceNumber,
+      });
+    }
   });
 
   if (missingLocations.size > 0) {
@@ -258,5 +277,5 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     });
   }
 
-  return { courses, caches, updatedAt, version };
+  return { courses, caches, updatedAt, version, sectionIds };
 }
