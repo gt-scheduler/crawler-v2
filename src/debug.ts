@@ -32,6 +32,7 @@ type SectionDebug = {
   attributes: string[];
   gradeBaseIndex: number;
   gradeBase: string | null;
+  sectionTitle: string;
 };
 
 type CourseDebug = {
@@ -82,6 +83,7 @@ function toDebugTerm(term: TermData): TermDebug {
         campusIndex,
         attributeIndices,
         gradeBaseIndex,
+        sectionTitle = fullName,
       ] = sectionTuple;
 
       const scheduleType =
@@ -147,6 +149,7 @@ function toDebugTerm(term: TermData): TermDebug {
         attributes,
         gradeBaseIndex,
         gradeBase,
+        sectionTitle,
       };
     }
 

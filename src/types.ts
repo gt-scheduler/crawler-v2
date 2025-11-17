@@ -153,7 +153,13 @@ export type Section = [
    * integer index into caches.gradeBases,
    * specifying the grading scheme of the class
    */
-  gradeBaseIndex: number
+  gradeBaseIndex: number,
+  /**
+   * the section-specific title of the course (e.g. "Animal Interaction"),
+   * we need this when there are classes with multiple sections with different titles
+   * e.g. 8803, 4803 etc
+   */
+  sectionTitle: string
 ];
 
 /**
