@@ -159,7 +159,11 @@ export type Section = [
    * we need this when there are classes with multiple sections with different titles
    * e.g. 8803, 4803 etc
    */
-  sectionTitle: string
+  sectionTitle: string,
+  /**
+   * restriction information for this section with status
+   */
+  restrictionData: SectionRestrictions
 ];
 
 /**
@@ -222,6 +226,73 @@ export type PrerequisiteSet = [
   operator: PrerequisiteOperator,
   ...clauses: PrerequisiteClause[]
 ];
+
+/**
+ * Each restriction value (e.g., a specific college, campus, major)
+ */
+export interface RestrictionValue {
+  /**
+   * Full name of the restriction value (e.g., "College of Computing")
+   */
+  name: string;
+  /**
+   * Short code for the restriction value (e.g., "C")
+   */
+  code: string;
+}
+
+/**
+ * One restriction rule for a section
+ */
+export interface Restriction {
+  /**
+   * Whether students must be enrolled in these values (true)
+   * or cannot be enrolled in them (false)
+   */
+  allowed: boolean;
+  /**
+   * The category of restriction being applied
+   */
+  category: RestrictionCategory;
+  /**
+   * The list of values that this restriction applies to
+   */
+  values: RestrictionValue[];
+}
+
+/**
+ * Supported restriction categories
+ */
+export type RestrictionCategory =
+  | "College"
+  | "Campus"
+  | "Major"
+  | "Level"
+  | "Class"
+  | "Degree"
+  | "Program";
+
+/**
+ * Status of restriction data for a section
+ */
+export type RestrictionStatus = "success" | "parse-error" | "fetch-error";
+
+/**
+ * Complete restriction information for a section
+ */
+export interface SectionRestrictions {
+  /**
+   * Array of restrictions (empty if no restrictions)
+   */
+  restrictions: Restriction[];
+  /**
+   * Status of the restriction data fetch/parse
+   * - "success": Successfully fetched and parsed (restrictions may be empty)
+   * - "parse-error": Downloaded but failed to parse
+   * - "fetch-error": Failed to download from server
+   */
+  status: RestrictionStatus;
+}
 
 /**
  * Location information about the building where a class takes place
