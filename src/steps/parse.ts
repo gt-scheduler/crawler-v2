@@ -10,6 +10,8 @@ import {
 import { cache } from "../utils";
 import { warn } from "../log";
 
+const MULTIPLE_TOPICS_COURSE_TITLE = "Multiple Topics";
+
 /**
  * A map consisting of course locations and corresponding coordinates
  *
@@ -81,6 +83,11 @@ const courseLocations = new Map([
   ["ISyE Main", new Location(33.775178, -84.401879)],
   ["Fourth Street Houses", new Location(33.775381, -84.391451)],
   ["Rich-Computer Center", new Location(33.77535159008218, -84.39513500282604)],
+  [
+    "Tech Sq Research Bldg",
+    new Location(33.77739874937255, -84.39001672502131),
+  ],
+  ["Success Center", new Location(33.772459490136825, -84.39394154592185)],
 ]);
 
 const ignoredLocations = [
@@ -121,7 +128,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
 
   sections.forEach((section) => {
     const {
-      courseTitle,
+      courseTitle, // Human-readable course title (e.g. "Principles of Accounting I")
       courseReferenceNumber,
       sequenceNumber,
       // creditHours: credits,
@@ -141,6 +148,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
         )?.meetingTime.creditHourSession ?? 0;
     }
 
+    // courseName = subject code + course number (e.g. "CS 8803")
     const courseName = `${section.subject} ${subjectCourse.replace(
       section.subject,
       ""
@@ -222,16 +230,23 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     });
 
     if (!(courseName in courses)) {
-      const title = courseTitle;
       const sectionsMap: Record<string, Section> = {};
       courses[courseName] = [
-        title,
+        courseTitle,
         sectionsMap,
         // Start off with an empty prerequisites array
         [],
         // Start off with no description
         null,
       ];
+    } else {
+      const existingTitle = courses[courseName][0];
+      if (
+        existingTitle !== courseTitle &&
+        existingTitle !== MULTIPLE_TOPICS_COURSE_TITLE
+      ) {
+        courses[courseName][0] = MULTIPLE_TOPICS_COURSE_TITLE;
+      }
     }
 
     courses[courseName][1][sequenceNumber] = [
@@ -242,6 +257,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       campusIndex,
       attributeIndices,
       -1,
+      courseTitle,
       { restrictions: [], status: "success" }, // restrictions - initialized with success status, will be populated later
     ];
   });

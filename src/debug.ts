@@ -38,6 +38,7 @@ type SectionDebug = {
   attributes: string[];
   gradeBaseIndex: number;
   gradeBase: string | null;
+  sectionTitle: string;
   restrictionData: SectionRestrictions;
 };
 
@@ -89,6 +90,7 @@ function toDebugTerm(term: TermData): TermDebug {
         campusIndex,
         attributeIndices,
         gradeBaseIndex,
+        sectionTitle = fullName,
         restrictionData,
       ] = sectionTuple;
 
@@ -153,8 +155,9 @@ function toDebugTerm(term: TermData): TermDebug {
         campus,
         attributeIndices,
         attributes,
-        gradeBaseIndex,
         gradeBase,
+        gradeBaseIndex,
+        sectionTitle,
         restrictionData,
       };
     }
