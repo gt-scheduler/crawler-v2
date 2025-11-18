@@ -31,7 +31,7 @@ export function attachSectionRestrictions(
 
           // Attach the restriction data (includes status)
           // eslint-disable-next-line no-param-reassign
-          sectionData[7] = restrictionData;
+          sectionData[8] = restrictionData;
 
           // Track counts by status
           if (restrictionData.status === "success") {
