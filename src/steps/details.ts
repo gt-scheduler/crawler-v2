@@ -88,13 +88,11 @@ export async function downloadCoursePrereqDetails(
     courseNumber: number,
   };
   const query = `?${concatParams(parameters)}`;
-
   const url = `https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/courseSearchResults/getPrerequisites${query}`;
 
   // Perform the request in a retry loop
   // (sometimes, we get rate limits/transport errors so this tries to mitigates them)
   const maxAttemptCount = 10;
-
   try {
     const response = await backOff(
       () =>
@@ -118,7 +116,6 @@ export async function downloadCoursePrereqDetails(
         },
       }
     );
-
     return response.data;
   } catch (err) {
     error(`exhausted retries for fetching prereqs`, err, { courseId });

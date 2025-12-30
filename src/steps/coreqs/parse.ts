@@ -39,7 +39,7 @@ export function parseCourseCoreqs(
         subjectCode = courseMap.get(value);
         if (!subjectCode) {
           warn(
-            `Course has a coreq for ${value} whose abbreviation does not exist. Prereq skipped.`,
+            `Course has a coreq for ${value} whose abbreviation does not exist. Coreq skipped.`,
             {
               courseId,
               subject: value,
