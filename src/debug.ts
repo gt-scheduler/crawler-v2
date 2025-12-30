@@ -8,6 +8,7 @@ import {
   Location,
   Prerequisites,
   SectionRestrictions,
+  Corequisites,
 } from "./types";
 
 type MeetingDebug = {
@@ -47,6 +48,7 @@ type CourseDebug = {
   sections: Record<string, SectionDebug>;
   prerequisites: Prerequisites | [];
   description: string | null;
+  corequisites: Corequisites | [];
 };
 
 type TermDebug = {
@@ -78,7 +80,8 @@ function toDebugTerm(term: TermData): TermDebug {
   const courses: Record<string, CourseDebug> = {};
 
   for (const [courseId, courseTuple] of Object.entries(term.courses)) {
-    const [fullName, sectionsMap, prerequisites, description] = courseTuple;
+    const [fullName, sectionsMap, prerequisites, description, corequisites] =
+      courseTuple;
 
     const sections: Record<string, SectionDebug> = {};
     for (const [sectionId, sectionTuple] of Object.entries(sectionsMap)) {
@@ -167,6 +170,7 @@ function toDebugTerm(term: TermData): TermDebug {
       sections,
       prerequisites,
       description,
+      corequisites,
     };
   }
 

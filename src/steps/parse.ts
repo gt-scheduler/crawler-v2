@@ -238,6 +238,8 @@ export function parse(sections: SectionResponse[], version: number): TermData {
         [],
         // Start off with no description
         null,
+        // Start off with an empty corequisites array
+        [],
       ];
     } else {
       const existingTitle = courses[courseName][0];
