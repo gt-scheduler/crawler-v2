@@ -114,7 +114,8 @@ export type Course = [
   /**
    * Description pulled from Oscar
    */
-  description: string | null
+  description: string | null,
+  corequisites: Corequisites
 ];
 
 /**
@@ -326,6 +327,8 @@ export class Location {
  * ```
  */
 export type Prerequisites = PrerequisiteSet | [];
+
+export type Corequisites = { id: string }[];
 
 export type BannerResponse = {
   success: boolean;
