@@ -121,12 +121,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
     finalDates: [],
     finalTimes: [],
     restrictions: [],
-    levels: [],
-    majors: [],
-    classes: [],
-    degrees: [],
-    programs: [],
-    colleges: [],
+    restrictionValues: {},
     // fullCourseNames: {},
   };
 

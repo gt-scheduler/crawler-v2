@@ -1,11 +1,6 @@
 import { load } from "cheerio";
 import { warn } from "../../log";
-import {
-  Caches,
-  Restriction,
-  RestrictionCategory,
-  SectionRestrictions,
-} from "../../types";
+import { Caches, Restriction, SectionRestrictions } from "../../types";
 import { cache } from "../../utils";
 
 /**
@@ -42,122 +37,77 @@ export function parseSectionRestrictions(
     const $ = load(html);
     const allowed: Restriction[] = [];
     const disallowed: Restriction[] = [];
-    // const restrictions: Restriction[] = [];
-
     // The HTML structure contains text nodes with restriction rules
     const text = $.text();
-
     // Split by common patterns
     const lines = text
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
-    let currentCategory: RestrictionCategory | null = null;
+    let currentCategory = "";
     let currentAllowed = true;
-    // const currentValues: RestrictionValue[] = [];
-
-    const categoryPatterns: Record<string, RestrictionCategory> = {
-      College: "College",
-      Campus: "Campus",
-      Major: "Major",
-      Level: "Level",
-      Class: "Class",
-      Degree: "Degree",
-      Program: "Program",
-    };
+    let valueBuffer = ""; // Holds fragmented lines until they are complete
 
     for (const line of lines) {
       const lowerLine = line.toLowerCase();
+      const headerMatch = line.match(
+        /(?:Cannot|Must) be enrolled in (?:one of )?the following (.*?):?$/i
+      );
 
-      // 1. Is this line a header?
-      let isHeader =
-        lowerLine.startsWith("cannot be enrolled") ||
-        lowerLine.startsWith("must be enrolled") ||
-        line.endsWith(":");
-
-      // Check if the line is exactly a standalone category name (e.g., "Colleges", "Major")
-      const cleanWord = lowerLine.replace(/[^a-z]/g, "");
-      const isStandaloneCategory = [
-        "college",
-        "colleges",
-        "campus",
-        "campuses",
-        "major",
-        "majors",
-        "class",
-        "classes",
-        "level",
-        "levels",
-        "degree",
-        "degrees",
-        "program",
-        "programs",
-      ].includes(cleanWord);
-
-      if (isStandaloneCategory) {
-        isHeader = true;
-      }
-
-      if (isHeader) {
+      if (headerMatch || line.endsWith(":")) {
         // --- HEADER LOGIC ---
-
-        // Update allowance rule
-        if (lowerLine.startsWith("cannot be enrolled")) {
+        if (lowerLine.startsWith("cannot")) {
           currentAllowed = false;
-        } else if (lowerLine.startsWith("must be enrolled")) {
+        } else if (lowerLine.startsWith("must")) {
           currentAllowed = true;
         }
 
-        // Extract the new category from the header
-        for (const [pattern, category] of Object.entries(categoryPatterns)) {
-          if (lowerLine.includes(pattern.toLowerCase())) {
-            currentCategory = category as RestrictionCategory;
-            break;
-          }
+        const rawCategory = headerMatch
+          ? headerMatch[1].trim()
+          : line.slice(0, -1).trim();
+
+        // Validate restriction category is all alphabet string
+        if (!rawCategory || !/^[a-zA-Z\s]+$/.test(rawCategory)) {
+          currentCategory = "";
+        } else {
+          currentCategory = rawCategory;
         }
+
+        valueBuffer = ""; // Clear the buffer anytime we hit a new header
       } else if (currentCategory) {
         // --- VALUE LOGIC ---
         // (We only enter this block if it's NOT a header AND we have a known category)
 
-        const valueMatch = line.match(/^(.+?)(?:\s*\(([^)]+)\))?\s*$/);
+        // We expect all values to end with ")", EXCEPT for "Special Approvals"
+        const isSpecialApprovals = currentCategory
+          .toLowerCase()
+          .includes("special approval");
+        const isCompleteValue = isSpecialApprovals || line.endsWith(")");
 
-        if (valueMatch) {
-          const valueName = valueMatch[1].trim();
-          const categoryIdx = cache(caches.restrictions, currentCategory);
+        if (!isCompleteValue) {
+          // It's a fragment; add to buffer and move to next line
+          valueBuffer = valueBuffer ? `${valueBuffer} ${line}` : line;
+        } else {
+          const fullLine = valueBuffer ? `${valueBuffer} ${line}` : line;
+          valueBuffer = "";
 
-          let targetCache: string[] | null = null;
+          const valueMatch = fullLine.match(/^(.+?)(?:\s*\(([^)]+)\))?\s*$/);
 
-          switch (currentCategory) {
-            case "College":
-              targetCache = caches.colleges;
-              break;
-            case "Campus":
-              targetCache = caches.campuses;
-              break;
-            case "Major":
-              targetCache = caches.majors;
-              break;
-            case "Level":
-              targetCache = caches.levels;
-              break;
-            case "Class":
-              targetCache = caches.classes;
-              break;
-            case "Degree":
-              targetCache = caches.degrees;
-              break;
-            case "Program":
-              targetCache = caches.programs;
-              break;
-            default:
-              break;
-          }
+          if (valueMatch) {
+            const name = valueMatch[1].trim();
+            const code = valueMatch[2] ? valueMatch[2].trim() : null;
+            const valueName = code ? `${name} (${code})` : name;
 
-          // Only push to the arrays if we successfully mapped to a target cache
-          // (This replaces the old "default: continue" rule)
-          if (targetCache) {
+            const categoryIdx = cache(caches.restrictions, currentCategory);
+            const { restrictionValues } = caches;
+            if (restrictionValues[currentCategory] === undefined) {
+              restrictionValues[currentCategory] = [];
+            }
+
+            const targetCache = restrictionValues[currentCategory];
             const valueIdx = cache(targetCache, valueName);
+
             const restrictionTuple: Restriction = [categoryIdx, valueIdx];
 
             if (currentAllowed) {

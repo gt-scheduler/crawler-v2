@@ -79,18 +79,10 @@ export interface Caches {
   // fullCourseNames: { [key: string]: string };
   /** List of restrictions on a course (e.g. `"Campus"`, or `"Level"`) */
   restrictions: string[];
-  /** List of restriction levels (e.g., "Graduate Semester") */
-  levels: string[];
-  /** List of restriction majors */
-  majors: string[];
-  /** List of restriction classes (e.g., "Senior") */
-  classes: string[];
-  /** List of restriction degrees */
-  degrees: string[];
-  /** List of restriction programs */
-  programs: string[];
-  /** List of restriction colleges */
-  colleges: string[];
+  /** * A dedicated object to hold the dynamically discovered restriction values.
+   * Keys are the category names (e.g., "campuses"), values are the arrays of strings.
+   */
+  restrictionValues: Record<string, string[]>;
 }
 
 /**
