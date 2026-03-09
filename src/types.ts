@@ -77,6 +77,20 @@ export interface Caches {
    * Example name: Accounting for ACCT
    * */
   // fullCourseNames: { [key: string]: string };
+  /** List of restrictions on a course (e.g. `"Campus"`, or `"Level"`) */
+  restrictions: string[];
+  /** List of restriction levels (e.g., "Graduate Semester") */
+  levels: string[];
+  /** List of restriction majors */
+  majors: string[];
+  /** List of restriction classes (e.g., "Senior") */
+  classes: string[];
+  /** List of restriction degrees */
+  degrees: string[];
+  /** List of restriction programs */
+  programs: string[];
+  /** List of restriction colleges */
+  colleges: string[];
 }
 
 /**
@@ -229,37 +243,20 @@ export type PrerequisiteSet = [
 ];
 
 /**
- * Each restriction value (e.g., a specific college, campus, major)
- */
-export interface RestrictionValue {
-  /**
-   * Full name of the restriction value (e.g., "College of Computing")
-   */
-  name: string;
-  /**
-   * Short code for the restriction value (e.g., "C")
-   */
-  code: string;
-}
-
-/**
  * One restriction rule for a section
  */
-export interface Restriction {
+export type Restriction = [
   /**
-   * Whether students must be enrolled in these values (true)
-   * or cannot be enrolled in them (false)
+   * integer index into `caches.restriction`
+   * specifying the category (e.g. Campus, Level)
    */
-  allowed: boolean;
+  categoryIndex: number,
   /**
-   * The category of restriction being applied
+   * integer index into the corresponding category's cache
+   * (e.g., caches.campuses, caches.levels)
    */
-  category: RestrictionCategory;
-  /**
-   * The list of values that this restriction applies to
-   */
-  values: RestrictionValue[];
-}
+  valueIndex: number
+];
 
 /**
  * Supported restriction categories
@@ -283,9 +280,12 @@ export type RestrictionStatus = "success" | "parse-error" | "fetch-error";
  */
 export interface SectionRestrictions {
   /**
-   * Array of restrictions (empty if no restrictions)
+   * Tuple separating restrictions by allowance:
+   * Index 0: Array of ALLOWED restrictions
+   * Index 1: Array of DISALLOWED restrictions
+   * (Can be an empty array [] if there are no restrictions)
    */
-  restrictions: Restriction[];
+  restrictions: [allowed: Restriction[], disallowed: Restriction[]] | [];
   /**
    * Status of the restriction data fetch/parse
    * - "success": Successfully fetched and parsed (restrictions may be empty)

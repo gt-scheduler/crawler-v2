@@ -300,7 +300,12 @@ async function crawlTerm(
               term,
               crn
             );
-            const parsed = parseSectionRestrictions(html, crn, downloadSuccess);
+            const parsed = parseSectionRestrictions(
+              html,
+              crn,
+              downloadSuccess,
+              termData.caches
+            );
             allRestrictions[crn] = parsed;
             setCompletionFields({
               htmlLength: html.length,
