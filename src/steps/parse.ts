@@ -262,7 +262,7 @@ export function parse(sections: SectionResponse[], version: number): TermData {
       attributeIndices,
       -1,
       courseTitle,
-      { restrictions: [], status: "success" }, // restrictions - initialized with success status, will be populated later
+      [], // restrictions - initialized with success status, will be populated later
     ];
   });
 

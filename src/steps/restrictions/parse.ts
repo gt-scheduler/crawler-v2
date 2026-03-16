@@ -1,6 +1,6 @@
 import { load } from "cheerio";
 import { warn } from "../../log";
-import { Caches, Restriction, SectionRestrictions } from "../../types";
+import { Caches, FetchedRestrictions, Restriction } from "../../types";
 import { cache } from "../../utils";
 
 /**
@@ -16,7 +16,7 @@ export function parseSectionRestrictions(
   crn: string,
   downloadSuccess: boolean,
   caches: Caches
-): SectionRestrictions {
+): FetchedRestrictions {
   // If download failed, return fetch-error status
   if (!downloadSuccess) {
     return {
@@ -97,17 +97,41 @@ export function parseSectionRestrictions(
           if (valueMatch) {
             const name = valueMatch[1].trim();
             const code = valueMatch[2] ? valueMatch[2].trim() : null;
-            const valueName = code ? `${name} (${code})` : name;
+            let valueName = code ? `${name} (${code})` : name;
 
             const categoryIdx = cache(caches.restrictions, currentCategory);
-            const { restrictionValues } = caches;
-            if (restrictionValues[currentCategory] === undefined) {
-              restrictionValues[currentCategory] = [];
+
+            let targetCache: string[];
+            if (currentCategory.toLowerCase().includes("campus")) {
+              targetCache = caches.campuses;
+
+              const normalize = (s: string): string =>
+                s
+                  .replace(/&amp;/g, "&")
+                  .replace(/[^a-z0-9]/gi, "")
+                  .toLowerCase();
+
+              const normalizedName = normalize(name);
+
+              // Find if this campus already exists in the cache (ignoring the (Code))
+              const existingCampus = targetCache.find(
+                (c) => normalize(c) === normalizedName
+              );
+
+              if (existingCampus) {
+                valueName = existingCampus; // Use the exact string already in the cache
+              } else {
+                valueName = name; // Fallback: use the name without the code
+              }
+            } else {
+              if (caches.restrictionValues[currentCategory] === undefined) {
+                // eslint-disable-next-line no-param-reassign
+                caches.restrictionValues[currentCategory] = [];
+              }
+              targetCache = caches.restrictionValues[currentCategory];
             }
 
-            const targetCache = restrictionValues[currentCategory];
             const valueIdx = cache(targetCache, valueName);
-
             const restrictionTuple: Restriction = [categoryIdx, valueIdx];
 
             if (currentAllowed) {

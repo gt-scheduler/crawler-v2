@@ -267,17 +267,21 @@ export type RestrictionCategory =
  */
 export type RestrictionStatus = "success" | "parse-error" | "fetch-error";
 
+export type SectionRestrictions =
+  | [allowed: Restriction[], disallowed: Restriction[]]
+  | [];
+
 /**
  * Complete restriction information for a section
  */
-export interface SectionRestrictions {
+export interface FetchedRestrictions {
   /**
    * Tuple separating restrictions by allowance:
    * Index 0: Array of ALLOWED restrictions
    * Index 1: Array of DISALLOWED restrictions
    * (Can be an empty array [] if there are no restrictions)
    */
-  restrictions: [allowed: Restriction[], disallowed: Restriction[]] | [];
+  restrictions: SectionRestrictions;
   /**
    * Status of the restriction data fetch/parse
    * - "success": Successfully fetched and parsed (restrictions may be empty)

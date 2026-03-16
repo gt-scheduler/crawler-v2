@@ -7,8 +7,8 @@ import {
   TermData,
   Location,
   Prerequisites,
-  SectionRestrictions,
   Corequisites,
+  Restriction,
 } from "./types";
 
 type MeetingDebug = {
@@ -40,7 +40,14 @@ type SectionDebug = {
   gradeBaseIndex: number;
   gradeBase: string | null;
   sectionTitle: string;
-  restrictionData: SectionRestrictions;
+  restrictions:
+    | { allowed: DecodedRestriction[]; disallowed: DecodedRestriction[] }
+    | [];
+};
+
+type DecodedRestriction = {
+  category: string;
+  value: string;
 };
 
 type CourseDebug = {
@@ -148,6 +155,36 @@ function toDebugTerm(term: TermData): TermDebug {
         };
       });
 
+      let decodedRestrictions: SectionDebug["restrictions"] = [];
+      if (restrictionData && restrictionData.length === 2) {
+        const [allowed, disallowed] = restrictionData as [
+          Restriction[],
+          Restriction[]
+        ];
+
+        const decode = (tuples: Restriction[]): DecodedRestriction[] =>
+          tuples.map(([catIdx, valIdx]) => {
+            const category =
+              safeGet(caches.restrictions, catIdx) ?? "Unknown Category";
+            let value = "Unknown Value";
+
+            if (category.toLowerCase().includes("campus")) {
+              value = safeGet(caches.campuses, valIdx) ?? "Unknown Campus";
+            } else {
+              const subCache = caches.restrictionValues?.[category];
+              if (subCache) {
+                value = safeGet(subCache, valIdx) ?? "Unknown Value";
+              }
+            }
+            return { category, value };
+          });
+
+        decodedRestrictions = {
+          allowed: decode(allowed),
+          disallowed: decode(disallowed),
+        };
+      }
+
       sections[sectionId] = {
         crn,
         meetings,
@@ -161,7 +198,7 @@ function toDebugTerm(term: TermData): TermDebug {
         gradeBase,
         gradeBaseIndex,
         sectionTitle,
-        restrictionData,
+        restrictions: decodedRestrictions,
       };
     }
 
