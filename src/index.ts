@@ -17,7 +17,7 @@ import {
   attachSectionRestrictions,
   downloadCourseCoreqDetails,
 } from "./steps";
-import { Corequisites, Prerequisites, SectionRestrictions } from "./types";
+import { Corequisites, Prerequisites, FetchedRestrictions } from "./types";
 import {
   setLogFormat,
   isLogFormat,
@@ -277,7 +277,7 @@ async function crawlTerm(
   );
 
   // Crawl section restrictions
-  const allRestrictions: Record<string, SectionRestrictions> = {};
+  const allRestrictions: Record<string, FetchedRestrictions> = {};
   await span(
     `downloading & parsing section restrictions`,
     { ...spanFields, concurrency: DETAILS_CONCURRENCY },
@@ -300,7 +300,12 @@ async function crawlTerm(
               term,
               crn
             );
-            const parsed = parseSectionRestrictions(html, crn, downloadSuccess);
+            const parsed = parseSectionRestrictions(
+              html,
+              crn,
+              downloadSuccess,
+              termData.caches
+            );
             allRestrictions[crn] = parsed;
             setCompletionFields({
               htmlLength: html.length,

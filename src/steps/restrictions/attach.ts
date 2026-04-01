@@ -1,5 +1,5 @@
 import { warn, log } from "../../log";
-import { TermData, SectionRestrictions } from "../../types";
+import { TermData, FetchedRestrictions } from "../../types";
 
 /**
  * Attaches section restrictions to the term data in-place
@@ -9,7 +9,7 @@ import { TermData, SectionRestrictions } from "../../types";
  */
 export function attachSectionRestrictions(
   termData: TermData,
-  restrictions: Record<string, SectionRestrictions>
+  restrictions: Record<string, FetchedRestrictions>
 ): void {
   let successCount = 0;
   let parseErrorCount = 0;
@@ -31,7 +31,7 @@ export function attachSectionRestrictions(
 
           // Attach the restriction data (includes status)
           // eslint-disable-next-line no-param-reassign
-          sectionData[8] = restrictionData;
+          sectionData[8] = restrictionData.restrictions;
 
           // Track counts by status
           if (restrictionData.status === "success") {
