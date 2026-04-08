@@ -25,6 +25,11 @@ export async function list(): Promise<[string[], string[]]> {
     const month = Number(term.slice(4));
     return month >= 1 && month <= 12;
   });
-
+  console.log(`Found ${results.length} terms: ${results.join(", ")}`);
+  console.log(
+    `Found ${termsFinalized.length} finalized terms: ${termsFinalized.join(
+      ", "
+    )}`
+  );
   return [results, termsFinalized];
 }
