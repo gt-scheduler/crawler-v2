@@ -91,21 +91,26 @@ async function crawl(): Promise<void> {
   const results: [string[], string[]] = await span(
     `listing all terms`,
     {},
-    async (setFinishFields) => {
+    async (setFinishFields): Promise<[string[], string[]]> => {
       const lists = await list();
       const terms = lists[0];
       const termInfo = lists[1];
-
-      let toScrape;
+      let toScrape: string[] = [];
       // If no term is manually set, scrape the most recent terms
+      // Replace the old check with this one:
       if (SPECIFIED_TERMS) {
-        if (SPECIFIED_TERMS.some((term) => !terms.includes(term)))
+        // Check if the term exists in EITHER the general list OR the finalized list
+        const isValid = SPECIFIED_TERMS.every(
+          (term) => terms.includes(term) || termInfo.includes(term)
+        );
+
+        if (!isValid) {
           throw new Error("The manually set term is invalid");
+        }
 
         toScrape = SPECIFIED_TERMS;
       } else {
-        const recentTerms = terms.slice(0, NUM_TERMS);
-        toScrape = recentTerms;
+        toScrape = terms.slice(0, NUM_TERMS);
       }
 
       if (ALWAYS_SCRAPE_CURRENT_TERM) {
