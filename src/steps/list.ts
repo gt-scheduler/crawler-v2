@@ -21,10 +21,17 @@ export async function list(): Promise<[string[], string[]]> {
   const terms = response.data.map((term) => term.code);
   const termsFinalized = responseFinalized.data.map((term) => term.code);
 
-  const results = terms.filter((term) => {
-    const month = Number(term.slice(4));
-    return month >= 1 && month <= 12;
-  });
+  // merge both endpoints
+  const allTerms = Array.from(new Set([...terms, ...termsFinalized]));
+
+  const results = allTerms
+    .filter((term) => {
+      const month = Number(term.slice(4));
+      return month >= 1 && month <= 12;
+    })
+    .sort()
+    .reverse();
+
   console.log(`Found ${results.length} terms: ${results.join(", ")}`);
   console.log(
     `Found ${termsFinalized.length} finalized terms: ${termsFinalized.join(
