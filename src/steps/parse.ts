@@ -88,6 +88,11 @@ const courseLocations = new Map([
     new Location(33.77739874937255, -84.39001672502131),
   ],
   ["Success Center", new Location(33.772459490136825, -84.39394154592185)],
+  [
+    "George Tower Scheller Tower",
+    new Location(33.77741098390759, -84.38828378943842),
+  ],
+  ["MaRC", new Location(33.777667632013944, -84.40135881282042)],
 ]);
 
 const ignoredLocations = [
